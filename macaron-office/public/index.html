@@ -1,0 +1,684 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>MACARON DE LUXE · 虛擬辦公室</title>
+<style>
+  :root {
+    --burgundy: #6D2E46;
+    --burgundy-dark: #4A1D2E;
+    --burgundy-light: #8B3A4E;
+    --gold: #B08D57;
+    --gold-bright: #D4AF7A;
+    --ivory: #FCF6F5;
+    --dark: #1C1213;
+    --dark-2: #2A1C1D;
+    --dark-3: #362527;
+    --muted: #8B7278;
+    --green: #7FB069;
+    --amber: #E8B54B;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  html, body {
+    height: 100%;
+    font-family: -apple-system, BlinkMacSystemFont, "Microsoft JhengHei", "Segoe UI", sans-serif;
+    background: var(--dark);
+    color: var(--ivory);
+    overflow: hidden;
+  }
+  .serif { font-family: Georgia, "Times New Roman", serif; }
+  ::-webkit-scrollbar { width: 8px; height: 8px; }
+  ::-webkit-scrollbar-track { background: var(--dark-2); }
+  ::-webkit-scrollbar-thumb { background: var(--burgundy); border-radius: 4px; }
+  ::-webkit-scrollbar-thumb:hover { background: var(--burgundy-light); }
+
+  .app {
+    display: grid;
+    grid-template-rows: 64px 1fr;
+    grid-template-columns: 320px 1fr 360px;
+    grid-template-areas: "header header header" "sidebar main activity";
+    height: 100vh; width: 100vw;
+  }
+  header {
+    grid-area: header;
+    background: linear-gradient(90deg, var(--dark-2) 0%, var(--dark) 100%);
+    border-bottom: 1px solid var(--burgundy);
+    display: flex; align-items: center; padding: 0 28px; gap: 20px;
+  }
+  header .accent { width: 4px; height: 32px; background: var(--gold); }
+  header h1 { font-family: Georgia, serif; font-size: 22px; font-weight: 700; color: var(--ivory); letter-spacing: 3px; }
+  header h1 .gold { color: var(--gold); }
+  header .subtitle { font-size: 11px; color: var(--muted); font-style: italic; margin-left: 4px; }
+  header .spacer { flex: 1; }
+  header .status-dot { display: inline-block; width: 8px; height: 8px; border-radius: 50%; background: var(--green); margin-right: 6px; animation: pulse 2s infinite; }
+  @keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.4; } }
+  header .ceo {
+    display: flex; align-items: center; gap: 10px;
+    padding: 6px 14px; background: var(--dark-3);
+    border: 1px solid var(--burgundy); border-radius: 24px;
+  }
+  header .ceo .av {
+    width: 32px; height: 32px; border-radius: 50%;
+    background: linear-gradient(135deg, var(--gold), var(--burgundy));
+    display: flex; align-items: center; justify-content: center;
+    font-family: Georgia, serif; font-weight: 700; color: var(--ivory);
+    border: 2px solid var(--gold);
+  }
+  header .ceo .info { line-height: 1.2; }
+  header .ceo .name { font-size: 13px; font-weight: 600; color: var(--ivory); }
+  header .ceo .role { font-size: 10px; color: var(--gold); font-style: italic; }
+
+  .sidebar {
+    grid-area: sidebar; background: var(--dark-2);
+    border-right: 1px solid var(--burgundy-dark);
+    overflow-y: auto; padding: 20px;
+  }
+  .sidebar h2 {
+    font-family: Georgia, serif; font-size: 11px; text-transform: uppercase;
+    letter-spacing: 3px; color: var(--gold);
+    margin-bottom: 16px; padding-left: 8px; border-left: 2px solid var(--gold);
+  }
+  .employee {
+    background: var(--dark-3); border: 1px solid transparent;
+    border-radius: 12px; padding: 16px; margin-bottom: 12px;
+    cursor: pointer; transition: all 0.25s ease; position: relative; overflow: hidden;
+  }
+  .employee::before {
+    content: ''; position: absolute; left: 0; top: 0; bottom: 0; width: 3px;
+    background: var(--gold); transform: scaleY(0); transform-origin: top;
+    transition: transform 0.3s ease;
+  }
+  .employee:hover { border-color: var(--gold); transform: translateY(-2px); }
+  .employee.active { border-color: var(--gold); background: var(--burgundy-dark); }
+  .employee.active::before { transform: scaleY(1); }
+  .employee .row1 { display: flex; align-items: center; gap: 12px; margin-bottom: 10px; }
+  .employee .avatar {
+    width: 44px; height: 44px; border-radius: 50%;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 20px; background: var(--burgundy);
+    border: 2px solid var(--gold); flex-shrink: 0;
+  }
+  .employee .meta { flex: 1; }
+  .employee .name { font-size: 14px; font-weight: 600; color: var(--ivory); font-family: Georgia, serif; letter-spacing: 1px; }
+  .employee .role { font-size: 11px; color: var(--gold); font-style: italic; }
+  .employee .status {
+    display: inline-flex; align-items: center; gap: 4px;
+    font-size: 10px; padding: 2px 8px;
+    background: rgba(127, 176, 105, 0.15); color: var(--green); border-radius: 10px;
+  }
+  .employee .status.working { background: rgba(232, 181, 75, 0.15); color: var(--amber); }
+  .employee .status.idle { background: rgba(139, 114, 120, 0.15); color: var(--muted); }
+  .employee .status .dot { width: 6px; height: 6px; border-radius: 50%; background: currentColor; }
+  .employee .status.working .dot { animation: pulse 1.2s infinite; }
+  .employee .bio { font-size: 11px; color: var(--muted); line-height: 1.5; margin-top: 4px; }
+
+  .main { grid-area: main; display: flex; flex-direction: column; overflow: hidden; background: var(--dark); }
+  .main-header {
+    padding: 24px 32px 16px; border-bottom: 1px solid var(--burgundy-dark);
+    display: flex; align-items: center; gap: 20px;
+  }
+  .main-header .big-av {
+    width: 64px; height: 64px; border-radius: 50%;
+    display: flex; align-items: center; justify-content: center; font-size: 32px;
+    background: linear-gradient(135deg, var(--burgundy), var(--burgundy-light));
+    border: 2px solid var(--gold);
+  }
+  .main-header .title h2 { font-family: Georgia, serif; font-size: 26px; letter-spacing: 2px; color: var(--ivory); margin-bottom: 2px; }
+  .main-header .title .sub { font-size: 13px; color: var(--gold); font-style: italic; }
+  .main-header .spacer { flex: 1; }
+  .main-header .prompt-btn {
+    background: transparent; color: var(--gold);
+    border: 1px solid var(--gold); padding: 8px 16px;
+    border-radius: 20px; font-size: 12px; cursor: pointer;
+    transition: all 0.2s; font-family: inherit;
+  }
+  .main-header .prompt-btn:hover { background: var(--gold); color: var(--dark); }
+
+  .conversation { flex: 1; overflow-y: auto; padding: 24px 32px; }
+  .msg { max-width: 85%; margin-bottom: 20px; animation: fadeIn 0.4s ease; }
+  @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+  .msg.user { margin-left: auto; }
+  .msg.user .bubble {
+    background: var(--burgundy); color: var(--ivory);
+    border-radius: 16px 16px 4px 16px; padding: 12px 18px;
+    border: 1px solid var(--burgundy-light);
+  }
+  .msg.ai .bubble {
+    background: var(--dark-3); color: var(--ivory);
+    border-radius: 16px 16px 16px 4px; padding: 16px 20px;
+    border: 1px solid var(--burgundy-dark); position: relative;
+  }
+  .msg.ai .bubble::before {
+    content: ''; position: absolute; left: 0; top: 0; bottom: 0; width: 3px;
+    background: var(--gold); border-radius: 3px 0 0 3px;
+  }
+  .msg .label { font-size: 11px; color: var(--gold); margin-bottom: 4px; font-style: italic; font-family: Georgia, serif; letter-spacing: 1px; }
+  .msg.user .label { text-align: right; }
+  .msg.ai .bubble h4 { font-family: Georgia, serif; color: var(--gold); font-size: 15px; margin: 12px 0 6px; border-bottom: 1px dotted var(--burgundy); padding-bottom: 4px; }
+  .msg.ai .bubble h4:first-child { margin-top: 0; }
+  .msg.ai .bubble p { margin: 6px 0; line-height: 1.7; font-size: 14px; }
+  .msg.ai .bubble ul { margin: 6px 0 10px 20px; }
+  .msg.ai .bubble li { font-size: 14px; line-height: 1.7; margin-bottom: 3px; }
+  .msg.ai .bubble strong { color: var(--gold-bright); }
+  .msg.ai .bubble .tldr {
+    background: var(--burgundy-dark); border-left: 2px solid var(--gold);
+    padding: 10px 14px; margin: 8px 0 12px;
+    font-style: italic; border-radius: 4px; font-size: 13px;
+  }
+  .thinking { display: inline-flex; gap: 4px; padding: 8px 0; }
+  .thinking span { width: 8px; height: 8px; border-radius: 50%; background: var(--gold); animation: bounce 1.4s infinite; }
+  .thinking span:nth-child(2) { animation-delay: 0.2s; }
+  .thinking span:nth-child(3) { animation-delay: 0.4s; }
+  @keyframes bounce { 0%, 80%, 100% { transform: scale(0.6); opacity: 0.5; } 40% { transform: scale(1); opacity: 1; } }
+
+  .input-bar { padding: 16px 32px 24px; border-top: 1px solid var(--burgundy-dark); background: var(--dark-2); }
+  .quick-tasks { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 12px; }
+  .quick-tasks .chip {
+    background: var(--dark-3); color: var(--gold);
+    border: 1px solid var(--burgundy); padding: 6px 12px;
+    border-radius: 14px; font-size: 11px; cursor: pointer;
+    transition: all 0.2s; font-family: inherit;
+  }
+  .quick-tasks .chip:hover { background: var(--burgundy); color: var(--ivory); }
+  .input-row { display: flex; gap: 12px; align-items: flex-end; }
+  .input-row textarea {
+    flex: 1; background: var(--dark-3); border: 1px solid var(--burgundy);
+    color: var(--ivory); padding: 12px 16px; border-radius: 12px;
+    resize: none; font-family: inherit; font-size: 14px;
+    min-height: 44px; max-height: 120px; outline: none; transition: border-color 0.2s;
+  }
+  .input-row textarea:focus { border-color: var(--gold); }
+  .input-row .send {
+    background: var(--gold); color: var(--dark); border: none;
+    padding: 12px 24px; border-radius: 12px; font-size: 14px; font-weight: 600;
+    cursor: pointer; font-family: Georgia, serif; letter-spacing: 2px;
+    transition: all 0.2s; height: 44px;
+  }
+  .input-row .send:hover { background: var(--gold-bright); transform: translateY(-1px); }
+  .input-row .send:disabled { opacity: 0.4; cursor: not-allowed; transform: none; }
+
+  .activity {
+    grid-area: activity; background: var(--dark-2);
+    border-left: 1px solid var(--burgundy-dark);
+    overflow-y: auto; padding: 20px;
+  }
+  .activity h2 {
+    font-family: Georgia, serif; font-size: 11px; text-transform: uppercase;
+    letter-spacing: 3px; color: var(--gold);
+    margin-bottom: 16px; padding-left: 8px; border-left: 2px solid var(--gold);
+  }
+  .activity .tab-bar { display: flex; gap: 0; margin-bottom: 16px; background: var(--dark-3); border-radius: 10px; padding: 4px; }
+  .activity .tab {
+    flex: 1; padding: 8px 12px; font-size: 11px; color: var(--muted);
+    text-align: center; cursor: pointer; border-radius: 7px;
+    transition: all 0.2s; font-family: inherit; background: transparent; border: none;
+  }
+  .activity .tab.active { background: var(--burgundy); color: var(--gold); }
+  .feed-item {
+    padding: 12px 14px; margin-bottom: 10px; background: var(--dark-3);
+    border-left: 2px solid var(--gold); border-radius: 0 8px 8px 0;
+    animation: fadeIn 0.4s; font-size: 12px;
+  }
+  .feed-item .time { font-size: 10px; color: var(--muted); font-family: Georgia, serif; margin-bottom: 4px; }
+  .feed-item .who { color: var(--gold); font-weight: 600; font-size: 11px; font-style: italic; }
+  .feed-item .what { color: var(--ivory); margin-top: 4px; line-height: 1.5; }
+  .feed-item.active { border-left-color: var(--amber); background: var(--burgundy-dark); }
+
+  .modal-backdrop {
+    position: fixed; inset: 0; background: rgba(0,0,0,0.7);
+    display: none; align-items: center; justify-content: center;
+    z-index: 100; backdrop-filter: blur(4px);
+  }
+  .modal-backdrop.show { display: flex; }
+  .modal {
+    background: var(--dark-2); border: 1px solid var(--gold);
+    border-radius: 16px; max-width: 720px; width: 90%;
+    max-height: 80vh; overflow-y: auto; padding: 32px;
+  }
+  .modal h3 { font-family: Georgia, serif; color: var(--gold); font-size: 22px; margin-bottom: 6px; letter-spacing: 2px; }
+  .modal .modal-sub { color: var(--muted); font-size: 12px; font-style: italic; margin-bottom: 20px; }
+  .modal pre {
+    background: var(--dark); border: 1px solid var(--burgundy);
+    padding: 18px; border-radius: 10px;
+    font-family: Menlo, Consolas, monospace; font-size: 12px; color: var(--ivory);
+    white-space: pre-wrap; line-height: 1.7; max-height: 50vh; overflow-y: auto;
+  }
+  .modal .actions { display: flex; gap: 12px; margin-top: 18px; justify-content: flex-end; }
+  .modal button {
+    background: var(--gold); color: var(--dark); border: none;
+    padding: 10px 20px; border-radius: 10px;
+    font-weight: 600; cursor: pointer; font-family: inherit; font-size: 13px;
+  }
+  .modal button.secondary { background: transparent; color: var(--ivory); border: 1px solid var(--muted); }
+  .modal button:hover { background: var(--gold-bright); }
+  .modal button.secondary:hover { border-color: var(--gold); color: var(--gold); }
+
+  .welcome {
+    flex: 1; display: flex; flex-direction: column;
+    align-items: center; justify-content: center; text-align: center; padding: 40px;
+  }
+  .welcome .big-logo { font-family: Georgia, serif; font-size: 48px; color: var(--ivory); letter-spacing: 6px; margin-bottom: 4px; }
+  .welcome .big-logo .gold { color: var(--gold); }
+  .welcome .tagline { color: var(--gold); font-size: 13px; font-style: italic; margin-bottom: 32px; letter-spacing: 2px; }
+  .welcome .line { width: 80px; height: 1px; background: var(--gold); margin: 20px auto; }
+  .welcome .instruction { color: var(--muted); font-size: 14px; max-width: 460px; line-height: 1.8; }
+
+  .schedule-badge {
+    display: inline-block; font-size: 10px; padding: 3px 10px;
+    background: rgba(176, 141, 87, 0.15); color: var(--gold);
+    border: 1px solid var(--gold); border-radius: 10px;
+    font-style: italic; letter-spacing: 1px;
+  }
+
+  @media (max-width: 1100px) {
+    .app { grid-template-columns: 260px 1fr; grid-template-areas: "header header" "sidebar main"; }
+    .activity { display: none; }
+  }
+  @media (max-width: 720px) {
+    .app { grid-template-columns: 1fr; grid-template-areas: "header" "main"; }
+    .sidebar { display: none; }
+  }
+</style>
+</head>
+<body>
+<div class="app">
+  <header>
+    <div class="accent"></div>
+    <div>
+      <h1>MACARON <span class="gold">DE LUXE</span></h1>
+      <div class="subtitle">虛擬辦公室 · AI Workforce Control Room</div>
+    </div>
+    <div class="spacer"></div>
+    <div style="font-size:11px;color:var(--muted);">
+      <span class="status-dot"></span><span id="connection-status">四位 AI 員工 · 線上待命</span>
+    </div>
+    <div class="ceo">
+      <div class="av">J</div>
+      <div class="info">
+        <div class="name">JEFFREY</div>
+        <div class="role">品味長 · 決策者</div>
+      </div>
+    </div>
+  </header>
+
+  <aside class="sidebar" id="sidebar">
+    <h2>AI 員工編制</h2>
+    <div id="employee-list"></div>
+    <div style="margin-top:24px;padding:14px;background:var(--dark-3);border-radius:10px;border:1px dashed var(--burgundy);">
+      <div style="font-size:10px;color:var(--gold);letter-spacing:2px;font-style:italic;margin-bottom:6px;">自動排程</div>
+      <div style="font-size:11px;color:var(--muted);line-height:1.6;">
+        <span class="schedule-badge">週一 09:00</span>　Leon 週策略簡報<br>
+        <span class="schedule-badge">週五 17:00</span>　Dex 週成效報告
+      </div>
+    </div>
+    <div style="margin-top:14px;padding:14px;background:var(--dark-3);border-radius:10px;border:1px dashed var(--burgundy);">
+      <div style="font-size:10px;color:var(--gold);letter-spacing:2px;font-style:italic;margin-bottom:6px;">使用提示</div>
+      <div style="font-size:11px;color:var(--muted);line-height:1.6;">
+        點選員工後，直接打字交付任務。<br>
+        回覆由真實 Claude API 產生。
+      </div>
+    </div>
+  </aside>
+
+  <main class="main" id="main">
+    <div class="welcome" id="welcome">
+      <div class="big-logo">MACARON <span class="gold">DE LUXE</span></div>
+      <div class="tagline">── 虛擬辦公室已開門營業 ──</div>
+      <div class="line"></div>
+      <div class="instruction">
+        您的四位 AI 員工已就位。<br><br>
+        從左側選擇一位員工開始交付任務。<br>
+        回覆由真實 Claude API 即時串流生成。
+      </div>
+      <div class="line"></div>
+      <div style="font-size:11px;color:var(--muted);font-style:italic;margin-top:16px;">
+        『讓 AI 負責重複決策，您只需要做品味決策』
+      </div>
+    </div>
+
+    <div id="workspace" style="display:none;flex:1;flex-direction:column;overflow:hidden;">
+      <div class="main-header">
+        <div class="big-av" id="ws-avatar">🎯</div>
+        <div class="title">
+          <h2 id="ws-name">LEON</h2>
+          <div class="sub" id="ws-role">AI 行銷總監 · Chief Marketing Officer</div>
+        </div>
+        <div class="spacer"></div>
+        <button class="prompt-btn" onclick="showPrompt()">📋 查看 System Prompt</button>
+      </div>
+      <div class="conversation" id="conv"></div>
+      <div class="input-bar">
+        <div class="quick-tasks" id="quick-tasks"></div>
+        <div class="input-row">
+          <textarea id="input" placeholder="交付任務給您的 AI 員工..." rows="1"></textarea>
+          <button class="send" id="send-btn" onclick="send()">交付</button>
+        </div>
+      </div>
+    </div>
+  </main>
+
+  <aside class="activity">
+    <h2>工作動態</h2>
+    <div class="tab-bar">
+      <button class="tab active" data-tab="feed" onclick="switchTab('feed')">即時動態</button>
+      <button class="tab" data-tab="reports" onclick="switchTab('reports')">排程報告</button>
+    </div>
+    <div id="feed"></div>
+    <div id="reports" style="display:none;"></div>
+  </aside>
+</div>
+
+<div class="modal-backdrop" id="modal">
+  <div class="modal">
+    <h3 id="modal-title">System Prompt</h3>
+    <div class="modal-sub" id="modal-sub">這份 System Prompt 就是後端實際送進 Claude API 的 system 欄位。</div>
+    <pre id="modal-content"></pre>
+    <div class="actions">
+      <button class="secondary" onclick="closeModal()">關閉</button>
+      <button onclick="copyPrompt()">📋 複製到剪貼簿</button>
+    </div>
+  </div>
+</div>
+
+<script>
+// ============ STATE ============
+let EMPLOYEES = {};           // 填入後由 /api/employees 載入
+let currentEmployee = null;
+let conversations = {};        // { empId: [{role, content}] }
+let feed = [];
+let employeeStatus = {};       // { empId: 'idle'|'working' }
+
+// ============ BOOT ============
+async function boot() {
+  try {
+    const res = await fetch('/api/employees');
+    const list = await res.json();
+    list.forEach(e => {
+      EMPLOYEES[e.id] = e;
+      conversations[e.id] = [];
+      employeeStatus[e.id] = 'idle';
+    });
+    renderEmployees();
+    renderFeed();
+    addFeed('SYSTEM', '🟢 虛擬辦公室已啟動 · 四位 AI 員工就緒');
+  } catch (err) {
+    console.error(err);
+    addFeed('SYSTEM', '⚠️ 無法連接後端，請檢查 server 是否啟動');
+  }
+}
+
+// ============ RENDERING ============
+function renderEmployees() {
+  const list = document.getElementById('employee-list');
+  list.innerHTML = Object.values(EMPLOYEES).map(emp => {
+    const st = employeeStatus[emp.id];
+    const hasHistory = conversations[emp.id] && conversations[emp.id].length;
+    const stLabel = st === 'working' ? '工作中' : (hasHistory ? '待命' : '閒置');
+    const stClass = st === 'working' ? 'working' : (hasHistory ? '' : 'idle');
+    return `
+      <div class="employee ${currentEmployee === emp.id ? 'active' : ''}" onclick="selectEmployee('${emp.id}')">
+        <div class="row1">
+          <div class="avatar">${emp.emoji}</div>
+          <div class="meta">
+            <div class="name">${emp.name}</div>
+            <div class="role">${emp.role}</div>
+          </div>
+        </div>
+        <div class="status ${stClass}"><span class="dot"></span>${stLabel}</div>
+        <div class="bio">${emp.bio}</div>
+      </div>
+    `;
+  }).join('');
+}
+
+function selectEmployee(id) {
+  currentEmployee = id;
+  const emp = EMPLOYEES[id];
+  document.getElementById('welcome').style.display = 'none';
+  document.getElementById('workspace').style.display = 'flex';
+  document.getElementById('ws-avatar').textContent = emp.emoji;
+  document.getElementById('ws-name').textContent = emp.name;
+  document.getElementById('ws-role').textContent = `${emp.role} · ${emp.roleEn}`;
+  renderQuickTasks();
+  renderConversation();
+  renderEmployees();
+}
+
+function renderQuickTasks() {
+  const emp = EMPLOYEES[currentEmployee];
+  document.getElementById('quick-tasks').innerHTML = emp.quickTasks.map(
+    t => `<button class="chip" onclick="useQuickTask(${JSON.stringify(t)})">${escapeHtml(t)}</button>`
+  ).join('');
+}
+
+function useQuickTask(text) {
+  document.getElementById('input').value = text;
+  document.getElementById('input').focus();
+}
+
+function renderConversation() {
+  const conv = document.getElementById('conv');
+  const msgs = conversations[currentEmployee] || [];
+  if (!msgs.length) {
+    const emp = EMPLOYEES[currentEmployee];
+    conv.innerHTML = `
+      <div style="text-align:center;color:var(--muted);padding:40px 20px;">
+        <div style="font-size:48px;margin-bottom:12px;opacity:0.3;">${emp.emoji}</div>
+        <div class="serif" style="color:var(--gold);font-size:18px;letter-spacing:3px;margin-bottom:8px;">${emp.name} 已就位</div>
+        <div style="font-size:12px;font-style:italic;">輸入任務或點選下方快捷任務開始</div>
+      </div>
+    `;
+    return;
+  }
+  conv.innerHTML = msgs.map(m => {
+    if (m.role === 'user') {
+      return `<div class="msg user"><div class="label">您 · JEFFREY</div><div class="bubble">${escapeHtml(m.content)}</div></div>`;
+    } else {
+      return `<div class="msg ai"><div class="label">${EMPLOYEES[currentEmployee].name} · ${EMPLOYEES[currentEmployee].role}</div><div class="bubble">${m.content}</div></div>`;
+    }
+  }).join('');
+  conv.scrollTop = conv.scrollHeight;
+}
+
+function escapeHtml(t) {
+  return String(t).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+}
+
+// ============ FEED ============
+function addFeed(who, what, active=false) {
+  const now = new Date();
+  const tstr = now.toLocaleTimeString('zh-TW', {hour12:false});
+  feed.unshift({ time: tstr, who, what, active });
+  if (feed.length > 50) feed.pop();
+  renderFeed();
+}
+function renderFeed() {
+  const f = document.getElementById('feed');
+  if (!feed.length) {
+    f.innerHTML = `<div style="color:var(--muted);font-size:12px;padding:20px;text-align:center;font-style:italic;">尚無工作紀錄<br><br>交付任務給 AI 員工後<br>他們的工作過程會出現在這裡</div>`;
+    return;
+  }
+  f.innerHTML = feed.map(item => `
+    <div class="feed-item ${item.active ? 'active' : ''}">
+      <div class="time">${item.time}</div>
+      <div class="who">${escapeHtml(item.who)}</div>
+      <div class="what">${escapeHtml(item.what)}</div>
+    </div>
+  `).join('');
+}
+
+async function switchTab(t) {
+  document.querySelectorAll('.tab').forEach(b => b.classList.remove('active'));
+  document.querySelector(`.tab[data-tab="${t}"]`).classList.add('active');
+  document.getElementById('feed').style.display = t === 'feed' ? 'block' : 'none';
+  document.getElementById('reports').style.display = t === 'reports' ? 'block' : 'none';
+  if (t === 'reports') await loadReports();
+}
+
+async function loadReports() {
+  const container = document.getElementById('reports');
+  container.innerHTML = '<div style="color:var(--muted);font-size:12px;padding:10px;font-style:italic;">載入中...</div>';
+  try {
+    const res = await fetch('/api/reports');
+    const list = await res.json();
+    if (!list.length) {
+      container.innerHTML = `<div style="color:var(--muted);font-size:12px;padding:20px;text-align:center;font-style:italic;">尚無排程報告<br><br>週一 09:00 Leon 會自動產出策略簡報<br>週五 17:00 Dex 會自動產出週報</div>`;
+      return;
+    }
+    container.innerHTML = list.map(r => `
+      <div class="feed-item">
+        <div class="time">${new Date(r.createdAt).toLocaleString('zh-TW')}</div>
+        <div class="who">${r.employeeName} · ${r.label}</div>
+        <div class="what" style="max-height:120px;overflow:hidden;margin-top:6px;font-size:11px;opacity:0.85;">${(r.output||'').replace(/<[^>]+>/g,'').substring(0,180)}...</div>
+      </div>
+    `).join('');
+  } catch (err) {
+    container.innerHTML = '<div style="color:var(--muted);font-size:12px;padding:10px;">載入失敗</div>';
+  }
+}
+
+// ============ REAL CLAUDE API ============
+async function send() {
+  if (!currentEmployee) return;
+  const input = document.getElementById('input');
+  const text = input.value.trim();
+  if (!text) return;
+  input.value = '';
+  input.style.height = 'auto';
+
+  const emp = EMPLOYEES[currentEmployee];
+  conversations[emp.id].push({ role: 'user', content: text });
+  renderConversation();
+
+  document.getElementById('send-btn').disabled = true;
+  employeeStatus[emp.id] = 'working';
+  renderEmployees();
+  addFeed(`${emp.name} · ${emp.role}`, `📥 收到新任務：「${text.substring(0,30)}${text.length>30?'...':''}」`, true);
+
+  // 加入一個空的 AI 訊息，讓 SSE 逐字填入
+  conversations[emp.id].push({ role: 'ai', content: '<div class="thinking"><span></span><span></span><span></span></div>' });
+  renderConversation();
+  const idx = conversations[emp.id].length - 1;
+
+  let firstChunk = true;
+
+  try {
+    const res = await fetch('/api/chat', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        employeeId: emp.id,
+        messages: conversations[emp.id]
+          .filter(m => m.role === 'user' || (m.role === 'ai' && !m.content.includes('thinking')))
+          .map(m => ({ role: m.role === 'ai' ? 'assistant' : 'user', content: stripHtml(m.content) })),
+      }),
+    });
+
+    if (!res.ok || !res.body) throw new Error('Network error ' + res.status);
+
+    const reader = res.body.getReader();
+    const decoder = new TextDecoder();
+    let buffer = '';
+    let accumulated = '';
+
+    while (true) {
+      const { value, done } = await reader.read();
+      if (done) break;
+      buffer += decoder.decode(value, { stream: true });
+
+      // 解析 SSE 格式： event: xxx\ndata: {...}\n\n
+      const chunks = buffer.split('\n\n');
+      buffer = chunks.pop(); // 最後一塊可能還不完整
+      for (const chunk of chunks) {
+        const lines = chunk.split('\n');
+        let event = 'message', data = '';
+        for (const line of lines) {
+          if (line.startsWith('event: ')) event = line.slice(7);
+          else if (line.startsWith('data: ')) data += line.slice(6);
+        }
+        if (!data) continue;
+        let parsed;
+        try { parsed = JSON.parse(data); } catch { continue; }
+
+        if (event === 'status') {
+          addFeed(emp.name, parsed.text, true);
+        } else if (event === 'delta') {
+          if (firstChunk) {
+            accumulated = '';
+            firstChunk = false;
+          }
+          accumulated += parsed.text;
+          conversations[emp.id][idx].content = accumulated;
+          renderConversation();
+        } else if (event === 'done') {
+          addFeed(emp.name, `✅ 任務完成（${parsed.length || accumulated.length} 字）`);
+        } else if (event === 'error') {
+          conversations[emp.id][idx].content = `<p style="color:#E8B54B;">⚠️ 發生錯誤：${escapeHtml(parsed.message)}</p>`;
+          renderConversation();
+          addFeed(emp.name, `❌ 發生錯誤：${parsed.message}`);
+        }
+      }
+    }
+  } catch (err) {
+    console.error(err);
+    conversations[emp.id][idx].content = `<p style="color:#E8B54B;">⚠️ 無法連接後端：${escapeHtml(err.message)}</p>`;
+    renderConversation();
+    addFeed(emp.name, `❌ 連線失敗：${err.message}`);
+  }
+
+  employeeStatus[emp.id] = 'idle';
+  renderEmployees();
+  document.getElementById('send-btn').disabled = false;
+}
+
+function stripHtml(html) {
+  const div = document.createElement('div');
+  div.innerHTML = html;
+  return div.textContent || div.innerText || '';
+}
+
+// ============ MODAL ============
+async function showPrompt() {
+  if (!currentEmployee) return;
+  const emp = EMPLOYEES[currentEmployee];
+  document.getElementById('modal-title').textContent = `${emp.name} 的 System Prompt`;
+  document.getElementById('modal-sub').textContent = `這份 System Prompt 就是後端實際送進 Claude API 的 system 欄位。`;
+  document.getElementById('modal-content').textContent = '載入中...';
+  document.getElementById('modal').classList.add('show');
+  try {
+    const res = await fetch(`/api/employees/${emp.id}/prompt`);
+    const data = await res.json();
+    document.getElementById('modal-content').textContent = data.systemPrompt;
+  } catch (err) {
+    document.getElementById('modal-content').textContent = '載入失敗';
+  }
+}
+function closeModal() { document.getElementById('modal').classList.remove('show'); }
+async function copyPrompt() {
+  const text = document.getElementById('modal-content').textContent;
+  try {
+    await navigator.clipboard.writeText(text);
+    const btn = event.target;
+    const orig = btn.textContent;
+    btn.textContent = '✓ 已複製';
+    setTimeout(() => btn.textContent = orig, 1800);
+  } catch {}
+}
+
+// ============ INIT ============
+document.getElementById('input').addEventListener('keydown', (e) => {
+  if (e.key === 'Enter' && !e.shiftKey) {
+    e.preventDefault();
+    send();
+  }
+});
+document.getElementById('input').addEventListener('input', function() {
+  this.style.height = 'auto';
+  this.style.height = Math.min(this.scrollHeight, 120) + 'px';
+});
+
+boot();
+</script>
+</body>
+</html>
