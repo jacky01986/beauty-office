@@ -270,13 +270,50 @@ ${consolidationParts}
 
 請以行銷總監身份，將以上專員成果整合成一份給 Jeffrey 的高層級決策報告。
 
-要求：
-1. 開頭用 <div class="tldr">⚡ TL;DR｜一句話結論</div>
-2. 說明「整體策略」（2–3 句）
-3. 用 <h4>各專員重點摘要</h4>，每位專員只摘要 2–3 個核心要點，不要重複貼原文
-4. 結尾「需要 Jeffrey 決策的關鍵問題」（1–3 個）
-5. 全程使用 HTML 排版，可用 <h4>、<p>、<ul><li>、<strong>、<table class="data">
-6. 字數 600–1000 字`;
+**輸出結構（嚴格按順序）：**
+
+① <div class="tldr">⚡ TL;DR｜一句話結論</div>
+
+② <h4>🎯 整體策略</h4>
+2–3 句說明本次行動的核心主軸。
+
+③ <h4>📋 各專員重點摘要</h4>
+每位專員只摘要 2–3 個核心要點（不要重複貼原文）。用 <ul><li> 排版。
+
+④ <div class="action-box">
+  <h4>✅ JEFFREY 本週待辦清單</h4>
+  <p style="font-size:13px;opacity:0.85;">以下是你「本人」必須親自做的事（專員已經做的不要列在這）：</p>
+  <ol class="action-list">
+    <li><strong>[DEADLINE]</strong> 具體行動描述（為何要做、需要多久、做完交給誰）</li>
+    …
+  </ol>
+</div>
+待辦項目 3–6 個，每項必須含截止日（例：4/18 前、本週五前），並標註需要多久（10 分鐘/半天/1 天）。
+
+⑤ <div class="decision-box">
+  <h4>🤔 需要你現在決策的事</h4>
+  <p style="font-size:13px;opacity:0.85;">以下決策必須你本人拍板，專員無法代決：</p>
+  <div class="decision">
+    <div class="d-title"><strong>決策 1：</strong>（決策主題）</div>
+    <div class="d-ctx">背景脈絡 1–2 句</div>
+    <ul class="d-options">
+      <li><strong>方案 A：</strong>描述｜<em>優點：…</em>｜<em>缺點：…</em></li>
+      <li><strong>方案 B：</strong>描述｜<em>優點：…</em>｜<em>缺點：…</em></li>
+      <li><strong>方案 C：</strong>描述｜<em>優點：…</em>｜<em>缺點：…</em></li>
+    </ul>
+    <div class="d-reco">👑 <strong>VICTOR 建議：</strong>方案 X，因為…</div>
+  </div>
+  （1–3 個決策）
+</div>
+
+⑥ <h4>📦 需要你提供的資源</h4>
+<ul><li>預算／素材／授權／帳號權限等等，清楚列出，沒有就寫「無」</li></ul>
+
+**規則：**
+- 全程使用 HTML 排版，可用 <h4>、<p>、<ul><li>、<ol><li>、<strong>、<em>、<table class="data">、以及上述 class
+- 字數 900–1500 字
+- 待辦清單裡的事必須是 Jeffrey 本人可執行的（例如：確認預算、聯絡 KOL、上傳素材、批准文案），絕對不要把專員已經做完的事列進去
+- 決策請示必須提供具體選項，不要只問「要不要做」這種是非題`;
 
     const finalStream = await anthropic.messages.stream({
       model: DIRECTOR_MODEL,
