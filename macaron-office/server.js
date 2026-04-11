@@ -16,6 +16,28 @@ const path = require("path");
 const cron = require("node-cron");
 const Anthropic = require("@anthropic-ai/sdk").default;
 const { EMPLOYEES } = require("./employees");
+const meta = require("./meta");
+
+// Employees that benefit from Meta live data in their prompt
+const META_AWARE_EMPLOYEES = new Set(["leon", "nova", "zara", "dex"]);
+
+async function maybeAugmentSystemPrompt(emp) {
+  if (!META_AWARE_EMPLOYEES.has(emp.id) || !meta.tokenOk()) return emp.systemPrompt;
+  try {
+    const block = await meta.buildLiveDataBlock();
+    if (!block) return emp.systemPrompt;
+    return (
+      emp.systemPrompt +
+      "\n\n---\n[📡 LIVE DATA · Meta 即時數據快照]\n" +
+      "以下是從 Meta Graph API 即時抓取的真實數據，請在分析與建議時優先引用這些數字，不要編造：\n\n" +
+      block +
+      "\n\n引用這些數據時，請在結論中標註「(資料來源：Meta Graph API)」。"
+    );
+  } catch (e) {
+    console.warn(`[meta live-data] ${emp.id}:`, e.message);
+    return emp.systemPrompt;
+  }
+}
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -81,6 +103,54 @@ function setupSSE(res) {
 const sleep = (ms) => new Promise(r => setTimeout(r, ms));
 
 // ============================================================
+// /api/meta/* — Stage 2 read-only Meta integration
+// ============================================================
+app.get("/api/meta/status", async (req, res) => {
+  try {
+    const status = await meta.getStatus();
+    res.json(status);
+  } catch (err) {
+    res.status(500).json({ error: String(err.message || err) });
+  }
+});
+
+app.get("/api/meta/fb/posts", async (req, res) => {
+  try {
+    const posts = await meta.getFbPagePosts({ limit: Number(req.query.limit) || 10 });
+    res.json(posts);
+  } catch (err) {
+    res.status(500).json({ error: String(err.message || err) });
+  }
+});
+
+app.get("/api/meta/ig/media", async (req, res) => {
+  try {
+    const media = await meta.getIgMedia({ limit: Number(req.query.limit) || 10 });
+    res.json(media);
+  } catch (err) {
+    res.status(500).json({ error: String(err.message || err) });
+  }
+});
+
+app.get("/api/meta/ads/insights", async (req, res) => {
+  try {
+    const insights = await meta.getAdsInsights({ datePreset: req.query.preset || "last_7d" });
+    res.json(insights);
+  } catch (err) {
+    res.status(500).json({ error: String(err.message || err) });
+  }
+});
+
+app.get("/api/meta/ads/campaigns", async (req, res) => {
+  try {
+    const camps = await meta.getAdCampaigns({ limit: Number(req.query.limit) || 25 });
+    res.json(camps);
+  } catch (err) {
+    res.status(500).json({ error: String(err.message || err) });
+  }
+});
+
+// ============================================================
 // /api/chat — single employee streaming
 // ============================================================
 app.post("/api/chat", async (req, res) => {
@@ -101,10 +171,12 @@ app.post("/api/chat", async (req, res) => {
 
   try {
     send("status", { text: `📥 ${emp.name} 收到任務` });
+    const liveSystem = await maybeAugmentSystemPrompt(emp);
+    if (liveSystem !== emp.systemPrompt) send("status", { text: `📡 已接入 Meta 即時數據` });
     const stream = await anthropic.messages.stream({
       model: MODEL,
       max_tokens: 3072,
-      system: emp.systemPrompt,
+      system: liveSystem,
       messages: messages.map(m => ({
         role: m.role === "ai" ? "assistant" : m.role,
         content: typeof m.content === "string" ? m.content : String(m.content),
@@ -222,10 +294,11 @@ ${workers.map(w => `- ${w.id} · ${w.name} · ${w.role}：${w.bio}`).join("\n")}
       const empId = assignment.employeeId;
       send("worker_start", { employeeId: empId, employeeName: emp.name });
       try {
+        const liveSystem = await maybeAugmentSystemPrompt(emp);
         const stream = await anthropic.messages.stream({
           model: MODEL,
           max_tokens: 2048,
-          system: emp.systemPrompt,
+          system: liveSystem,
           messages: [{
             role: "user",
             content: `行銷總監 VICTOR 已將以下任務分派給你：\n\n「${assignment.task}」\n\n背景：Jeffrey 原本交付的任務是「${task}」。\n請聚焦於你被分派的範圍，產出可立即使用的內容。`
