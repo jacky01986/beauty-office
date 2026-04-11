@@ -255,6 +255,68 @@
   }
   .strategy-box .label { font-family: Georgia, serif; color: var(--gold); font-size: 11px; letter-spacing: 2px; display: block; margin-bottom: 4px; font-style: normal; }
 
+  /* ──── Action items (JEFFREY 本週待辦清單) ──── */
+  .msg.ai .bubble .action-box {
+    background: linear-gradient(135deg, rgba(176, 141, 87, 0.12) 0%, rgba(109, 46, 70, 0.18) 100%);
+    border: 1px solid var(--gold); border-radius: 12px;
+    padding: 16px 20px; margin: 18px 0;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+  }
+  .msg.ai .bubble .action-box h4 {
+    color: var(--gold-bright); font-size: 16px; margin-top: 0;
+    border-bottom: 1px solid var(--gold); padding-bottom: 6px;
+  }
+  .msg.ai .bubble .action-list { margin: 10px 0 0 22px; padding: 0; list-style: decimal; }
+  .msg.ai .bubble .action-list li {
+    margin-bottom: 10px; padding: 10px 12px;
+    background: rgba(28, 18, 19, 0.55); border-left: 3px solid var(--gold-bright);
+    border-radius: 0 6px 6px 0; line-height: 1.7;
+  }
+  .msg.ai .bubble .action-list li strong:first-child {
+    display: inline-block; background: var(--burgundy); color: var(--gold-bright);
+    padding: 2px 8px; border-radius: 4px; font-size: 11px; letter-spacing: 1px;
+    margin-right: 8px; font-family: Menlo, monospace;
+  }
+
+  /* ──── Decision requests (決策請示) ──── */
+  .msg.ai .bubble .decision-box {
+    background: linear-gradient(135deg, rgba(74, 29, 46, 0.7) 0%, rgba(28, 18, 19, 0.9) 100%);
+    border: 1px solid var(--burgundy-light); border-radius: 12px;
+    padding: 16px 20px; margin: 18px 0;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+  }
+  .msg.ai .bubble .decision-box h4 {
+    color: var(--gold-bright); font-size: 16px; margin-top: 0;
+    border-bottom: 1px solid var(--burgundy-light); padding-bottom: 6px;
+  }
+  .msg.ai .bubble .decision {
+    background: rgba(28, 18, 19, 0.55); border-radius: 8px;
+    padding: 12px 14px; margin: 12px 0;
+    border-left: 3px solid var(--gold);
+  }
+  .msg.ai .bubble .decision .d-title {
+    color: var(--gold-bright); font-size: 14px; margin-bottom: 6px;
+  }
+  .msg.ai .bubble .decision .d-ctx {
+    color: var(--muted); font-size: 12px; font-style: italic; margin-bottom: 10px;
+  }
+  .msg.ai .bubble .decision .d-options { list-style: none; padding: 0; margin: 8px 0; }
+  .msg.ai .bubble .decision .d-options li {
+    padding: 8px 12px; margin: 6px 0;
+    background: var(--dark-2); border-radius: 6px;
+    font-size: 13px; line-height: 1.7; border-left: 2px solid var(--burgundy);
+  }
+  .msg.ai .bubble .decision .d-options li strong { color: var(--gold-bright); }
+  .msg.ai .bubble .decision .d-options li em {
+    font-size: 11px; color: var(--muted); font-style: normal; margin-left: 4px;
+  }
+  .msg.ai .bubble .decision .d-reco {
+    margin-top: 10px; padding: 8px 12px;
+    background: rgba(176, 141, 87, 0.15); border-radius: 6px;
+    border: 1px dashed var(--gold); font-size: 13px;
+  }
+  .msg.ai .bubble .decision .d-reco strong { color: var(--gold-bright); }
+
   .input-bar { padding: 14px 32px 22px; border-top: 1px solid var(--burgundy-dark); background: var(--dark-2); }
   .quick-tasks { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 10px; }
   .quick-tasks .chip {
