@@ -772,8 +772,9 @@ async function sendOrchestrate(text) {
   const conv = document.getElementById('conv');
   conv.scrollTop = conv.scrollHeight;
 
-  let workerEls = {};      // empId → DOM element
-  let workerAccum = {};    // empId → accumulated html
+  let workerEls = {};        // empId → DOM element
+  let workerAccum = {};      // empId → accumulated html
+  let workerOutputMsgs = {}; // empId → reference to ai message in that worker's own conversations[]
   let summaryAccum = '';
   let summaryEl = null;
 
@@ -833,6 +834,22 @@ async function sendOrchestrate(text) {
           workerEls[a.employeeId] = bubbleEl.querySelector(`[data-emp="${a.employeeId}"]`);
           workerAccum[a.employeeId] = '';
           employeeStatus[a.employeeId] = 'working';
+
+          // ★ Mirror task & output into the worker's OWN conversation history
+          if (!conversations[a.employeeId]) conversations[a.employeeId] = [];
+          const taskMsg = {
+            role: 'ai',
+            label: `👑 VICTOR 派發任務`,
+            content: `<div class="strategy-box"><span class="label">📋 任務指派</span>${escapeHtml(a.task)}</div>`
+          };
+          const outputMsg = {
+            role: 'ai',
+            label: `${a.employeeName} · ${a.employeeRole}`,
+            content: `<em style="color:var(--muted);">執行中…</em>`
+          };
+          conversations[a.employeeId].push(taskMsg);
+          conversations[a.employeeId].push(outputMsg);
+          workerOutputMsgs[a.employeeId] = outputMsg;
         });
         updateEmployeeStatusOnly();
         conv.scrollTop = conv.scrollHeight;
@@ -853,6 +870,10 @@ async function sendOrchestrate(text) {
           out.innerHTML = workerAccum[p.employeeId];
           out.scrollTop = out.scrollHeight;
         }
+        // ★ Also keep the worker's own conversation history in sync (live)
+        if (workerOutputMsgs[p.employeeId]) {
+          workerOutputMsgs[p.employeeId].content = workerAccum[p.employeeId];
+        }
       },
       worker_done: (p) => {
         const card = workerEls[p.employeeId];
@@ -865,6 +886,14 @@ async function sendOrchestrate(text) {
         employeeStatus[p.employeeId] = 'idle';
         updateEmployeeStatusOnly();
         addFeed(empName, `✅ 完成（${p.length} 字）`);
+        // ★ Finalise that worker's own conversation entry
+        if (workerOutputMsgs[p.employeeId]) {
+          workerOutputMsgs[p.employeeId].content = workerAccum[p.employeeId] || workerOutputMsgs[p.employeeId].content;
+        }
+        // If user is currently viewing this employee, refresh their chat view
+        if (currentEmployee === p.employeeId) {
+          rebuildConversation();
+        }
       },
       worker_error: (p) => {
         const card = workerEls[p.employeeId];
@@ -874,6 +903,10 @@ async function sendOrchestrate(text) {
         }
         employeeStatus[p.employeeId] = 'idle';
         updateEmployeeStatusOnly();
+        if (workerOutputMsgs[p.employeeId]) {
+          workerOutputMsgs[p.employeeId].content = `<p style="color:#E8B54B;">⚠️ ${escapeHtml(p.message || '執行錯誤')}</p>`;
+        }
+        if (currentEmployee === p.employeeId) rebuildConversation();
       },
       summary_delta: (p) => {
         if (!summaryEl) {
