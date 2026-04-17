@@ -19,22 +19,22 @@ const { EMPLOYEES } = require("./employees");
 const meta = require("./meta");
 
 // Employees that benefit from Meta live data in their prompt
-const META_AWARE_EMPLOYEES = new Set(["leon", "nova", "zara", "dex"]);
+const META_AWARE_EMPLOYEES = new Set(["victor", "leon", "camille", "aria", "dex", "nova", "sofia", "milo", "emi"]);
 
 async function maybeAugmentSystemPrompt(emp) {
   if (!META_AWARE_EMPLOYEES.has(emp.id) || !meta.tokenOk()) return emp.systemPrompt;
   try {
-    const block = await meta.buildLiveDataBlock();
+    const block = await meta.buildCoachDataBlock();
     if (!block) return emp.systemPrompt;
     return (
       emp.systemPrompt +
-      "\n\n---\n[📡 LIVE DATA · Meta 即時數據快照]\n" +
-      "以下是從 Meta Graph API 即時抓取的真實數據，請在分析與建議時優先引用這些數字，不要編造：\n\n" +
+      "\n\n---\n[📡 COACHING DATA · Meta 即時數據快照]\n" +
+      "以下是從 Meta Graph API 即時抓取的真實數據，請在教練建議與分析時優先引用這些數字，不要編造：\n\n" +
       block +
       "\n\n引用這些數據時，請在結論中標註「(資料來源：Meta Graph API)」。"
     );
   } catch (e) {
-    console.warn(`[meta live-data] ${emp.id}:`, e.message);
+    console.warn(`[meta coaching-data] ${emp.id}:`, e.message);
     return emp.systemPrompt;
   }
 }
@@ -455,7 +455,7 @@ cron.schedule("0 9 * * 1", () => {
 
 cron.schedule("0 17 * * 5", () => {
   runScheduledTask("dex",
-    "請產出本週廣告成效報告。若無實際數據請使用模擬數據並標註。",
+    "請產出本週廣告成效報告。若无實際數據請使用模擬數據並標註。",
     "weekly-analytics-report");
 }, { timezone: CRON_TZ });
 
