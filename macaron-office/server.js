@@ -17,6 +17,7 @@ const cron = require("node-cron");
 const Anthropic = require("@anthropic-ai/sdk").default;
 const { EMPLOYEES } = require("./employees");
 const meta = require("./meta");
+const line = require("./line");
 
 // Employees that benefit from Meta live data in their prompt
 const META_AWARE_EMPLOYEES = new Set(["victor", "leon", "camille", "aria", "dex", "nova", "sofia", "milo", "emi"]);
@@ -50,6 +51,30 @@ if (!fs.existsSync(DATA_DIR)) fs.mkdirSync(DATA_DIR, { recursive: true });
 if (!fs.existsSync(REPORTS_FILE)) fs.writeFileSync(REPORTS_FILE, "[]", "utf8");
 
 app.use(cors());
+
+// ============================================================
+// /api/line/webhook — LINE 訊息接收端（要 raw body 驗 signature）
+// 必須放在 express.json() middleware 之前
+// ============================================================
+app.post('/api/line/webhook',
+  express.raw({ type: 'application/json' }),
+  async (req, res) => {
+    const signature = req.headers['x-line-signature'];
+    const rawBody = req.body.toString('utf8');
+    if (!line.verifySignature(rawBody, signature)) {
+      console.warn('[LINE webhook] signature mismatch');
+      return res.status(401).send('invalid signature');
+    }
+    // 先回 200 讓 LINE 不要重試
+    res.status(200).send('ok');
+    let payload;
+    try { payload = JSON.parse(rawBody); } catch (e) { return; }
+    for (const event of (payload.events || [])) {
+      handleLineEvent(event).catch(err => console.error('[LINE event]', err));
+    }
+  }
+);
+
 app.use(express.json({ limit: "1mb" }));
 
 // ============================================================
@@ -62,7 +87,8 @@ app.get('/', (req, res, next) => {
     const navHtml = `<div id="__app_nav" style="position:fixed;top:14px;right:14px;z-index:9999;display:flex;gap:8px;background:rgba(26,20,22,0.95);padding:8px 10px;border-radius:10px;border:1px solid #6D2E46;box-shadow:0 4px 14px rgba(0,0,0,0.5);font-family:-apple-system,'PingFang TC',sans-serif;">
       <a href="/optimize.html" style="color:#B08D57;text-decoration:none;padding:6px 12px;background:rgba(176,141,87,0.08);border-radius:6px;font-size:12px;letter-spacing:1px;border:1px solid rgba(176,141,87,0.3);">⚡ 廣告體檢</a>
       <a href="/competitor.html" style="color:#B08D57;text-decoration:none;padding:6px 12px;background:rgba(176,141,87,0.08);border-radius:6px;font-size:12px;letter-spacing:1px;border:1px solid rgba(176,141,87,0.3);">📡 競品追蹤</a>
-      <a href="/social.html" style="color:#B08D57;text-decoration:none;padding:6px 12px;background:rgba(176,141,87,0.08);border-radius:6px;font-size:12px;letter-spacing:1px;border:1px solid rgba(176,141,87,0.3);">📱 社群草稿</a>
+      <a href="/social.html" style="color:#B08D57;text-decoration:none;padding:6px 12px;background:rgba(176,141,87,0.08);border-radius:6px;font-size:12px;letter-spacing:1px;border:1px solid rgba(176,141,87,0.3);">📱 FB/IG</a>
+      <a href="/line.html" style="color:#06C755;text-decoration:none;padding:6px 12px;background:rgba(6,199,85,0.08);border-radius:6px;font-size:12px;letter-spacing:1px;border:1px solid rgba(6,199,85,0.3);">💬 LINE</a>
     </div>`;
     const injected = html.replace('</body>', navHtml + '</body>');
     res.type('html').send(injected);
@@ -811,6 +837,194 @@ cron.schedule("0 17 * * 5", () => {
     "請產出本週廣告成效報告。若無實際數據請使用模擬數據並標註。",
     "weekly-analytics-report");
 }, { timezone: CRON_TZ });
+
+
+// ============================================================
+// /api/line/* — LINE 客服 + 廣播 (T4.5)
+// ============================================================
+const LINE_MESSAGES_FILE = path.join(DATA_DIR, "line-messages.json");
+if (!fs.existsSync(LINE_MESSAGES_FILE)) fs.writeFileSync(LINE_MESSAGES_FILE, "[]", "utf8");
+
+function loadLineMessages() {
+  try { return JSON.parse(fs.readFileSync(LINE_MESSAGES_FILE, "utf8")); } catch (e) { return []; }
+}
+function saveLineMessages(arr) {
+  fs.writeFileSync(LINE_MESSAGES_FILE, JSON.stringify(arr.slice(-500), null, 2), "utf8");
+}
+
+async function handleLineEvent(event) {
+  // 目前先處理文字訊息；圖片、貼圖可以之後擴充
+  if (event.type !== "message") return;
+  if (event.message.type !== "text") return;
+
+  const userId = event.source && event.source.userId;
+  const text = event.message.text;
+  const replyToken = event.replyToken;
+  const timestamp = new Date(event.timestamp).toISOString();
+
+  let profile = null;
+  if (userId) {
+    try { profile = await line.getUserProfile(userId); } catch (e) {}
+  }
+
+  // 用 Claude 分類意圖 + 寫草稿
+  let classification = null;
+  let draft = null;
+  if (anthropic) {
+    try {
+      const sysPrompt = `你是 MACARON DE LUXE 的客服助理。
+會收到客人的 LINE 訊息，請做兩件事並輸出 JSON：
+1. 意圖分類：price / pickup / storage / gifting / complaint / product / other
+2. 建議的回覆草稿（精品語調、直接切入、不囉嗦）
+
+品牌資訊（用來回答）：
+- 4 家門店：台南本店、新光西門 B2、新光中港 B2、新光南西 B2
+- 核心商品：6 入 NT$880、12 入 NT$1,580、禮盒 NT$480–2,280
+- 保存期限：冷藏 7 天，常溫 6 小時
+- 不含防腐劑，每日現做
+
+輸出格式：
+{"intent": "...", "draft": "..."}
+
+直接回 JSON，不要前後綴、不要 markdown。`;
+      const msg = await anthropic.messages.create({
+        model: MODEL,
+        max_tokens: 600,
+        system: sysPrompt,
+        messages: [{ role: "user", content: text }],
+      });
+      const responseText = msg.content.map(b => b.text || "").join("").trim();
+      const m = responseText.match(/\{[\s\S]*\}/);
+      if (m) {
+        const parsed = JSON.parse(m[0]);
+        classification = parsed.intent || null;
+        draft = parsed.draft || null;
+      }
+    } catch (e) {
+      console.error("[LINE classify]", e.message);
+    }
+  }
+
+  const record = {
+    id: Date.now() + "_" + Math.floor(Math.random() * 10000),
+    timestamp,
+    userId,
+    userName: (profile && profile.displayName) || null,
+    userPic: (profile && profile.pictureUrl) || null,
+    text,
+    replyToken,
+    classification,
+    draft,
+    replied: false,
+    replyText: null,
+    repliedAt: null,
+  };
+  const arr = loadLineMessages();
+  arr.push(record);
+  saveLineMessages(arr);
+}
+
+// GET /api/line/status — 檢查 token 是否設定
+app.get("/api/line/status", async (req, res) => {
+  res.json({
+    tokenSet: line.tokenOk(),
+    webhookUrl: `${req.protocol}://${req.get("host")}/api/line/webhook`,
+  });
+});
+
+// GET /api/line/messages — 最近 100 筆訊息（最新在前）
+app.get("/api/line/messages", (req, res) => {
+  const arr = loadLineMessages();
+  res.json(arr.slice(-100).reverse());
+});
+
+// POST /api/line/reply  body: {id, text, confirmed:true}
+app.post("/api/line/reply", async (req, res) => {
+  const { id, text, confirmed } = req.body || {};
+  if (confirmed !== true) return res.status(400).json({ error: "must include confirmed:true" });
+  if (!text || text.trim().length < 1) return res.status(400).json({ error: "text required" });
+
+  const arr = loadLineMessages();
+  const rec = arr.find(r => r.id === id);
+  if (!rec) return res.status(404).json({ error: "message not found" });
+  if (rec.replied) return res.status(400).json({ error: "already replied" });
+
+  try {
+    // 訊息 30 分鐘內用免費 reply，超過或無 token 就用 push（計費）
+    const ageMinutes = (Date.now() - new Date(rec.timestamp).getTime()) / 60000;
+    let result, method;
+    if (ageMinutes < 30 && rec.replyToken) {
+      method = "reply";
+      result = await line.replyMessage(rec.replyToken, text);
+    } else if (rec.userId) {
+      method = "push";
+      result = await line.pushMessage(rec.userId, text);
+    } else {
+      throw new Error("no userId and replyToken expired");
+    }
+    rec.replied = true;
+    rec.replyText = text;
+    rec.repliedAt = new Date().toISOString();
+    rec.replyMethod = method;
+    saveLineMessages(arr);
+    appendAction({ type: "line-reply", method, userName: rec.userName, messagePreview: text.slice(0, 80), success: true });
+    res.json({ ok: true, method, result });
+  } catch (err) {
+    appendAction({ type: "line-reply", userName: rec.userName, messagePreview: text.slice(0, 80), success: false, error: String(err.message || err) });
+    res.status(500).json({ error: String(err.message || err) });
+  }
+});
+
+// POST /api/line/broadcast  body: {text, confirmed:true}
+app.post("/api/line/broadcast", async (req, res) => {
+  const { text, confirmed } = req.body || {};
+  if (confirmed !== true) return res.status(400).json({ error: "must include confirmed:true" });
+  if (!text || text.trim().length < 1) return res.status(400).json({ error: "text required" });
+
+  try {
+    const result = await line.broadcastMessage(text);
+    appendAction({ type: "line-broadcast", messagePreview: text.slice(0, 80), success: true });
+    res.json({ ok: true, result });
+  } catch (err) {
+    appendAction({ type: "line-broadcast", messagePreview: text.slice(0, 80), success: false, error: String(err.message || err) });
+    res.status(500).json({ error: String(err.message || err) });
+  }
+});
+
+// POST /api/line/generate-broadcast  body: {brief, count}
+// 讓 NOVA 寫 N 個廣播草稿
+app.post("/api/line/generate-broadcast", async (req, res) => {
+  const { brief, count = 3 } = req.body || {};
+  if (!brief || brief.trim().length < 5) return res.status(400).json({ error: "brief too short" });
+  if (!anthropic) return res.status(500).json({ error: "ANTHROPIC_API_KEY not set" });
+
+  const emp = EMPLOYEES["nova"];
+  const userPrompt = `針對下面 brief，寫 ${count} 個 LINE 官方帳號廣播訊息草稿，每個風格不同。
+
+Brief：${brief}
+
+要求：
+- LINE 廣播會發給全部好友，語氣親近但保持精品感
+- 每則 120-200 字
+- 可加 emoji 但節制（1-3 個）
+- 回 JSON 陣列：[{"style":"...","text":"..."}, ...]
+- 不要 markdown，直接回 JSON`;
+  try {
+    const msg = await anthropic.messages.create({
+      model: MODEL,
+      max_tokens: 1500,
+      system: emp.systemPrompt,
+      messages: [{ role: "user", content: userPrompt }],
+    });
+    const responseText = msg.content.map(b => b.text || "").join("").trim();
+    const m = responseText.match(/\[[\s\S]*\]/);
+    const drafts = JSON.parse(m ? m[0] : responseText);
+    res.json({ drafts });
+  } catch (err) {
+    res.status(500).json({ error: String(err.message || err) });
+  }
+});
+
 
 app.get("/healthz", (req, res) => res.json({ ok: true, model: MODEL, employees: Object.keys(EMPLOYEES).length }));
 
