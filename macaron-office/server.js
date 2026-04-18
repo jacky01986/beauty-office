@@ -996,38 +996,6 @@ app.post("/api/line/reply", async (req, res) => {
     res.status(500).json({ error: String(err.message || err) });
   }
 });
-  if (!text || text.trim().length < 1) return res.status(400).json({ error: "text required" });
-
-  const arr = loadLineMessages();
-  const rec = arr.find(r => r.id === id);
-  if (!rec) return res.status(404).json({ error: "message not found" });
-  if (rec.replied) return res.status(400).json({ error: "already replied" });
-
-  try {
-    // 訊息 30 分鐘內用免費 reply，超過或無 token 就用 push（計費）
-    const ageMinutes = (Date.now() - new Date(rec.timestamp).getTime()) / 60000;
-    let result, method;
-    if (ageMinutes < 30 && rec.replyToken) {
-      method = "reply";
-      result = await line.replyMessage(rec.replyToken, text);
-    } else if (rec.userId) {
-      method = "push";
-      result = await line.pushMessage(rec.userId, text);
-    } else {
-      throw new Error("no userId and replyToken expired");
-    }
-    rec.replied = true;
-    rec.replyText = text;
-    rec.repliedAt = new Date().toISOString();
-    rec.replyMethod = method;
-    saveLineMessages(arr);
-    appendAction({ type: "line-reply", method, userName: rec.userName, messagePreview: text.slice(0, 80), success: true });
-    res.json({ ok: true, method, result });
-  } catch (err) {
-    appendAction({ type: "line-reply", userName: rec.userName, messagePreview: text.slice(0, 80), success: false, error: String(err.message || err) });
-    res.status(500).json({ error: String(err.message || err) });
-  }
-});
 
 // POST /api/line/broadcast  body: {text, imageUrl?, linkUrl?, linkLabel?, confirmed:true}
 app.post("/api/line/broadcast", async (req, res) => {
@@ -1046,17 +1014,6 @@ app.post("/api/line/broadcast", async (req, res) => {
     res.json({ ok: true, result });
   } catch (err) {
     appendAction({ type: "line-broadcast", messagePreview: (text || "").slice(0, 80), success: false, error: String(err.message || err) });
-    res.status(500).json({ error: String(err.message || err) });
-  }
-});
-  if (!text || text.trim().length < 1) return res.status(400).json({ error: "text required" });
-
-  try {
-    const result = await line.broadcastMessage(text);
-    appendAction({ type: "line-broadcast", messagePreview: text.slice(0, 80), success: true });
-    res.json({ ok: true, result });
-  } catch (err) {
-    appendAction({ type: "line-broadcast", messagePreview: text.slice(0, 80), success: false, error: String(err.message || err) });
     res.status(500).json({ error: String(err.message || err) });
   }
 });
