@@ -1,5 +1,5 @@
 // ============================================================
-// MACARON DE LUXE · LINE Messaging API Client (T4.5)
+// MACARON DE LUXE · LINE Messaging API Client (T4.5 / T4.6)
 // ============================================================
 // Required env vars:
 //   LINE_CHANNEL_ACCESS_TOKEN   Long-lived channel access token
@@ -57,13 +57,12 @@ async function lineGet(path) {
   return b;
 }
 
-// 轉成 LINE 訊息物件（字串→ text message）
+// 字串→text message、物件直接 pass through
 function normalize(messages) {
   const arr = Array.isArray(messages) ? messages : [messages];
   return arr.map(m => typeof m === "string" ? { type: "text", text: m } : m);
 }
 
-// Reply（只在收到訊息後 30 分鐘內可用、單個 replyToken 限一次、免費）
 async function replyMessage(replyToken, messages) {
   if (!replyToken) throw new Error("replyToken required");
   return await linePost("/message/reply", {
@@ -72,7 +71,6 @@ async function replyMessage(replyToken, messages) {
   });
 }
 
-// Push（對特定 userId；計入月額度）
 async function pushMessage(to, messages) {
   if (!to) throw new Error("to (userId) required");
   return await linePost("/message/push", {
@@ -81,35 +79,69 @@ async function pushMessage(to, messages) {
   });
 }
 
-// Broadcast（發給全部好友；計入月額度，且每則 = 好友數 × 1）
 async function broadcastMessage(messages) {
   return await linePost("/message/broadcast", {
     messages: normalize(messages),
   });
 }
 
-// 取用戶資料（名稱、頭像）
 async function getUserProfile(userId) {
   if (!userId) throw new Error("userId required");
   return await lineGet(`/profile/${userId}`);
 }
 
-// 目前 bot 狀態（好友數等）
 async function getBotStatus() {
-  try {
-    const info = await lineGet("/info");
-    return info;
-  } catch (e) {
-    return null;
-  }
+  try { return await lineGet("/info"); } catch (e) { return null; }
 }
 
-// Helper：建立 Flex / image / sticker 訊息
+// -------- Message builders (T4.6) --------
+
 function textMessage(text) {
-  return { type: "text", text };
+  return { type: "text", text: String(text).slice(0, 5000) };
 }
+
 function imageMessage(originalContentUrl, previewImageUrl) {
-  return { type: "image", originalContentUrl, previewImageUrl: previewImageUrl || originalContentUrl };
+  return {
+    type: "image",
+    originalContentUrl,
+    previewImageUrl: previewImageUrl || originalContentUrl,
+  };
+}
+
+// Buttons Template（帶連結按鈕；text 有圖片時上限 60 字、無圖 160 字）
+function buttonsMessage({ text, imageUrl, title, actions, altText }) {
+  const template = {
+    type: "buttons",
+    text: String(text || "點此查看").slice(0, imageUrl ? 60 : 160),
+    actions: (actions || []).slice(0, 4).map(a => ({
+      type: "uri",
+      label: String(a.label || "打開").slice(0, 20),
+      uri: a.uri,
+    })),
+  };
+  if (imageUrl) template.thumbnailImageUrl = imageUrl;
+  if (title) template.title = String(title).slice(0, 40);
+  return {
+    type: "template",
+    altText: String(altText || text || "訊息").slice(0, 400),
+    template,
+  };
+}
+
+// 統一建訊息陣列：text + 圖片 + 按鈕連結
+function buildMessages({ text, imageUrl, linkUrl, linkLabel }) {
+  const msgs = [];
+  if (text && text.trim().length > 0) msgs.push(textMessage(text));
+  if (imageUrl) msgs.push(imageMessage(imageUrl));
+  if (linkUrl) {
+    msgs.push(buttonsMessage({
+      text: linkLabel || text || "點此查看",
+      actions: [{ label: linkLabel || "打開連結", uri: linkUrl }],
+      altText: linkLabel || text || "連結",
+    }));
+  }
+  // LINE 單次 push/reply/broadcast 最多 5 則
+  return msgs.slice(0, 5);
 }
 
 module.exports = {
@@ -122,6 +154,8 @@ module.exports = {
   getBotStatus,
   textMessage,
   imageMessage,
+  buttonsMessage,
+  buildMessages,
   linePost,
   lineGet,
 };
