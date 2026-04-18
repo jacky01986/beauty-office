@@ -18,6 +18,7 @@ const Anthropic = require("@anthropic-ai/sdk").default;
 const { EMPLOYEES } = require("./employees");
 const meta = require("./meta");
 const line = require("./line");
+const multer = require("multer");
 
 // Employees that benefit from Meta live data in their prompt
 const META_AWARE_EMPLOYEES = new Set(["victor", "leon", "camille", "aria", "dex", "nova", "sofia", "milo", "emi"]);
@@ -97,6 +98,20 @@ app.get('/', (req, res, next) => {
 
 
 app.use(express.static(path.join(__dirname, "public")));
+
+// Serve LINE uploaded images publicly (LINE CDN 會抓這個 URL)
+app.use("/uploads", express.static(LINE_UPLOAD_DIR, { maxAge: "30d" }));
+
+// POST /api/line/upload  上傳圖片檔給 LINE 用（multipart/form-data, field: file）
+app.post("/api/line/upload", (req, res) => {
+  lineUpload.single("file")(req, res, (err) => {
+    if (err) return res.status(400).json({ error: String(err.message || err) });
+    if (!req.file) return res.status(400).json({ error: "no file" });
+    const host = `${req.protocol}://${req.get("host")}`;
+    const url = `${host}/uploads/${req.file.filename}`;
+    res.json({ ok: true, url, filename: req.file.filename, size: req.file.size });
+  });
+});
 
 let anthropic = null;
 if (process.env.ANTHROPIC_API_KEY) {
@@ -938,10 +953,49 @@ app.get("/api/line/messages", (req, res) => {
   res.json(arr.slice(-100).reverse());
 });
 
-// POST /api/line/reply  body: {id, text, confirmed:true}
+// POST /api/line/reply  body: {id, text, imageUrl?, linkUrl?, linkLabel?, confirmed:true}
 app.post("/api/line/reply", async (req, res) => {
-  const { id, text, confirmed } = req.body || {};
+  const { id, text, imageUrl, linkUrl, linkLabel, confirmed } = req.body || {};
   if (confirmed !== true) return res.status(400).json({ error: "must include confirmed:true" });
+  const hasContent = (text && text.trim().length > 0) || imageUrl || linkUrl;
+  if (!hasContent) return res.status(400).json({ error: "text / imageUrl / linkUrl required" });
+
+  const arr = loadLineMessages();
+  const rec = arr.find(r => r.id === id);
+  if (!rec) return res.status(404).json({ error: "message not found" });
+  if (rec.replied) return res.status(400).json({ error: "already replied" });
+
+  const messages = line.buildMessages({ text, imageUrl, linkUrl, linkLabel });
+  if (messages.length === 0) return res.status(400).json({ error: "no messages to send" });
+
+  try {
+    const ageMinutes = (Date.now() - new Date(rec.timestamp).getTime()) / 60000;
+    let result, method;
+    if (ageMinutes < 30 && rec.replyToken) {
+      method = "reply";
+      result = await line.replyMessage(rec.replyToken, messages);
+    } else if (rec.userId) {
+      method = "push";
+      result = await line.pushMessage(rec.userId, messages);
+    } else {
+      throw new Error("no userId and replyToken expired");
+    }
+    rec.replied = true;
+    rec.replyText = text || "";
+    rec.replyImageUrl = imageUrl || null;
+    rec.replyLinkUrl = linkUrl || null;
+    rec.replyLinkLabel = linkLabel || null;
+    rec.repliedAt = new Date().toISOString();
+    rec.replyMethod = method;
+    saveLineMessages(arr);
+    const preview = (text || "").slice(0, 60) + (imageUrl ? " [+圖]" : "") + (linkUrl ? " [+連結]" : "");
+    appendAction({ type: "line-reply", method, userName: rec.userName, messagePreview: preview, success: true });
+    res.json({ ok: true, method, result });
+  } catch (err) {
+    appendAction({ type: "line-reply", userName: rec.userName, messagePreview: (text || "").slice(0, 80), success: false, error: String(err.message || err) });
+    res.status(500).json({ error: String(err.message || err) });
+  }
+});
   if (!text || text.trim().length < 1) return res.status(400).json({ error: "text required" });
 
   const arr = loadLineMessages();
@@ -975,10 +1029,26 @@ app.post("/api/line/reply", async (req, res) => {
   }
 });
 
-// POST /api/line/broadcast  body: {text, confirmed:true}
+// POST /api/line/broadcast  body: {text, imageUrl?, linkUrl?, linkLabel?, confirmed:true}
 app.post("/api/line/broadcast", async (req, res) => {
-  const { text, confirmed } = req.body || {};
+  const { text, imageUrl, linkUrl, linkLabel, confirmed } = req.body || {};
   if (confirmed !== true) return res.status(400).json({ error: "must include confirmed:true" });
+  const hasContent = (text && text.trim().length > 0) || imageUrl || linkUrl;
+  if (!hasContent) return res.status(400).json({ error: "text / imageUrl / linkUrl required" });
+
+  const messages = line.buildMessages({ text, imageUrl, linkUrl, linkLabel });
+  if (messages.length === 0) return res.status(400).json({ error: "no messages to send" });
+
+  try {
+    const result = await line.broadcastMessage(messages);
+    const preview = (text || "").slice(0, 60) + (imageUrl ? " [+圖]" : "") + (linkUrl ? " [+連結]" : "");
+    appendAction({ type: "line-broadcast", messagePreview: preview, success: true });
+    res.json({ ok: true, result });
+  } catch (err) {
+    appendAction({ type: "line-broadcast", messagePreview: (text || "").slice(0, 80), success: false, error: String(err.message || err) });
+    res.status(500).json({ error: String(err.message || err) });
+  }
+});
   if (!text || text.trim().length < 1) return res.status(400).json({ error: "text required" });
 
   try {
