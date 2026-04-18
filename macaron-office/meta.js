@@ -799,6 +799,50 @@ async function scanCompetitors({ competitors = null, country = "TW", limit = 10 
   };
 }
 
+
+// ─────────────────────── Social publishing (T3 · Phase 1 Feature 4) ───────────────────────
+// 需要額外 Meta 權限：
+//   pages_manage_posts    → FB Page 發文
+//   instagram_content_publish → IG 商業帳號發文
+//
+// FB Page token 跟 User token 不同：發 Page 貼文建議用 Page Access Token。
+// 但只要 User token 有 pages_manage_posts 權限，呼叫 /{page-id}/feed 也能發（只是 impersonate 會受限）。
+// 我們先以 User token 打，失敗再提示。
+
+async function publishFbPost({ pageId = process.env.META_FB_PAGE_ID, message, link = null } = {}) {
+  if (!pageId) throw new Error("FB pageId not set");
+  if (!message || message.trim().length < 5) throw new Error("message too short (min 5 chars)");
+  const body = { message };
+  if (link) body.link = link;
+  return await graphPost(`/${pageId}/feed`, body);
+}
+
+// IG 發文是 2-step：
+//   1) POST /{ig-user-id}/media  → 取 creation_id
+//   2) POST /{ig-user-id}/media_publish  creation_id=X
+// 必須提供一個公開可讀的圖片 URL（Meta 會去抓）
+async function publishIgImagePost({ igUserId = process.env.META_IG_USER_ID, imageUrl, caption = "" } = {}) {
+  if (!igUserId) throw new Error("IG user id not set");
+  if (!imageUrl) throw new Error("imageUrl required");
+  // Step 1: 建立 media container
+  const step1 = await graphPost(`/${igUserId}/media`, {
+    image_url: imageUrl,
+    caption,
+  });
+  const creationId = step1?.id;
+  if (!creationId) throw new Error("Step 1 did not return creation id");
+  // Step 2: publish
+  const step2 = await graphPost(`/${igUserId}/media_publish`, {
+    creation_id: creationId,
+  });
+  return {
+    creationId,
+    publishedId: step2?.id,
+    step1,
+    step2,
+  };
+}
+
 module.exports = {
   tokenOk,
   graphGet,
@@ -821,6 +865,8 @@ module.exports = {
   searchAdsLibrary,
   scanCompetitors,
   DEFAULT_COMPETITORS,
+  publishFbPost,
+  publishIgImagePost,
   buildLiveDataBlock,
   buildCoachDataBlock,
 };
