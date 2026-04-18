@@ -1,4 +1,4 @@
-<\!DOCTYPE html>
+<!DOCTYPE html>
 <html lang="zh-Hant">
 <head>
 <meta charset="UTF-8">
@@ -205,7 +205,7 @@ async function scan() {
     const data = await res.json();
     if (data.error) throw new Error(data.error);
 
-    if (\!data.proposalCount) {
+    if (!data.proposalCount) {
       status.innerHTML = `✅ 掃描了 <strong>${data.totalAdsScanned}</strong> 個廣告，<strong>沒有</strong>需要暫停的（恭喜，廣告體質健康）。`;
       results.innerHTML = '<div class="empty">沒有發現問題廣告。</div>';
       return;
@@ -218,7 +218,7 @@ async function scan() {
         <div class="ad-meta">
           <span>已運行 <strong>${p.ageDays ?? '-'}</strong> 天</span>
           <span>已花 <strong>NT$${Math.round(p.spend)}</strong></span>
-          <span>ROAS <strong>${p.roas \!= null ? p.roas.toFixed(2) : 'N/A'}</strong></span>
+          <span>ROAS <strong>${p.roas != null ? p.roas.toFixed(2) : 'N/A'}</strong></span>
           <span>CTR <strong>${p.ctr.toFixed(2)}%</strong></span>
           <span>CPM <strong>NT$${Math.round(p.cpm)}</strong></span>
           <span>轉換 <strong>${p.purchases}</strong> 筆</span>
@@ -247,8 +247,8 @@ async function scan() {
 
 async function doConfirm(idx) {
   const p = window._proposals[idx];
-  if (\!p) return;
-  if (\!confirm(`確認暫停廣告：\n${p.adName}\n\n暫停後可在 Meta Ads Manager 重新啟用。`)) return;
+  if (!p) return;
+  if (!confirm(`確認暫停廣告：\n${p.adName}\n\n暫停後可在 Meta Ads Manager 重新啟用。`)) return;
   const card = document.querySelector(`.ad-card[data-ad="${p.adId}"]`);
   const confirmBtn = card.querySelector('.btn-confirm');
   confirmBtn.disabled = true;
@@ -282,7 +282,7 @@ async function doConfirm(idx) {
 
 function doSkip(idx) {
   const p = window._proposals[idx];
-  if (\!p) return;
+  if (!p) return;
   const card = document.querySelector(`.ad-card[data-ad="${p.adId}"]`);
   if (card) card.remove();
   toast(`已略過：${p.adName}`);
@@ -293,7 +293,7 @@ async function loadLog() {
     const res = await fetch('/api/optimize/actions');
     const arr = await res.json();
     const ll = $('log-list');
-    if (\!arr.length) {
+    if (!arr.length) {
       ll.innerHTML = '<div class="empty" style="padding:20px;">尚無紀錄</div>';
       return;
     }
