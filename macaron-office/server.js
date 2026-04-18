@@ -51,6 +51,25 @@ if (!fs.existsSync(REPORTS_FILE)) fs.writeFileSync(REPORTS_FILE, "[]", "utf8");
 
 app.use(cors());
 app.use(express.json({ limit: "1mb" }));
+
+// ============================================================
+// GET / — 注入全站導覽列到 index.html
+// ============================================================
+app.get('/', (req, res, next) => {
+  const indexPath = path.join(__dirname, 'public', 'index.html');
+  fs.readFile(indexPath, 'utf8', (err, html) => {
+    if (err) return next();
+    const navHtml = `<div id="__app_nav" style="position:fixed;top:14px;right:14px;z-index:9999;display:flex;gap:8px;background:rgba(26,20,22,0.95);padding:8px 10px;border-radius:10px;border:1px solid #6D2E46;box-shadow:0 4px 14px rgba(0,0,0,0.5);font-family:-apple-system,'PingFang TC',sans-serif;">
+      <a href="/optimize.html" style="color:#B08D57;text-decoration:none;padding:6px 12px;background:rgba(176,141,87,0.08);border-radius:6px;font-size:12px;letter-spacing:1px;border:1px solid rgba(176,141,87,0.3);">⚡ 廣告體檢</a>
+      <a href="/competitor.html" style="color:#B08D57;text-decoration:none;padding:6px 12px;background:rgba(176,141,87,0.08);border-radius:6px;font-size:12px;letter-spacing:1px;border:1px solid rgba(176,141,87,0.3);">📡 競品追蹤</a>
+      <a href="/social.html" style="color:#B08D57;text-decoration:none;padding:6px 12px;background:rgba(176,141,87,0.08);border-radius:6px;font-size:12px;letter-spacing:1px;border:1px solid rgba(176,141,87,0.3);">📱 社群草稿</a>
+    </div>`;
+    const injected = html.replace('</body>', navHtml + '</body>');
+    res.type('html').send(injected);
+  });
+});
+
+
 app.use(express.static(path.join(__dirname, "public")));
 
 let anthropic = null;
@@ -438,7 +457,12 @@ app.post("/api/social/publish", async (req, res) => {
       if (!imageUrl) return res.status(400).json({ error: "IG post requires imageUrl" });
       result = await meta.publishIgImagePost({ imageUrl, caption });
     } else {
-      result = await meta.publishFbPost({ message: caption, link });
+      // FB: 如果有 imageUrl 就用 photos endpoint，否則用 feed
+      if (imageUrl) {
+        result = await meta.publishFbPhoto({ imageUrl, message: caption });
+      } else {
+        result = await meta.publishFbPost({ message: caption, link });
+      }
     }
 
     // 更新 draft 狀態
