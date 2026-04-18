@@ -151,6 +151,91 @@ app.get("/api/meta/ads/campaigns", async (req, res) => {
 });
 
 // ============================================================
+// /api/optimize/* — Phase 1: 廣告半自動優化（提議 → 確認 → 執行）
+// ============================================================
+const ACTIONS_FILE = path.join(DATA_DIR, "actions.json");
+if (!fs.existsSync(ACTIONS_FILE)) fs.writeFileSync(ACTIONS_FILE, "[]", "utf8");
+
+function appendAction(record) {
+  try {
+    const arr = JSON.parse(fs.readFileSync(ACTIONS_FILE, "utf8"));
+    arr.push({ ...record, id: Date.now() + Math.floor(Math.random() * 1000), createdAt: new Date().toISOString() });
+    fs.writeFileSync(ACTIONS_FILE, JSON.stringify(arr.slice(-200), null, 2), "utf8");
+  } catch (e) {
+    console.error("[appendAction]", e);
+  }
+}
+
+// GET /api/optimize/propose-pauses?preset=last_7d&roas=0.8&ctr=0.5&cpm=250&max=5
+app.get("/api/optimize/propose-pauses", async (req, res) => {
+  try {
+    const preset = req.query.preset || "last_7d";
+    const ads = await meta.getAdsWithInsights({ datePreset: preset, limit: 100 });
+    const rules = {
+      minAgeDays: Number(req.query.minAgeDays) || 3,
+      minSpend: Number(req.query.minSpend) || 1000,
+      roasThreshold: Number(req.query.roas) || 0.8,
+      ctrThreshold: Number(req.query.ctr) || 0.5,
+      cpmCeiling: Number(req.query.cpm) || 250,
+      maxProposals: Number(req.query.max) || 5,
+    };
+    const proposals = meta.proposePausesFromAds(ads, rules);
+    res.json({
+      preset,
+      rules,
+      totalAdsScanned: ads.length,
+      proposalCount: proposals.length,
+      proposals,
+      generatedAt: new Date().toISOString(),
+    });
+  } catch (err) {
+    console.error("[propose-pauses]", err);
+    res.status(500).json({ error: String(err.message || err), graphError: err.graphError || null });
+  }
+});
+
+// POST /api/optimize/execute-pause  body: {adId, adName, reason, confirmed: true}
+app.post("/api/optimize/execute-pause", async (req, res) => {
+  const { adId, adName, reason, confirmed } = req.body || {};
+  if (!adId) return res.status(400).json({ error: "adId required" });
+  if (confirmed !== true) return res.status(400).json({ error: "must include confirmed:true" });
+
+  try {
+    const result = await meta.pauseAd(adId);
+    appendAction({
+      type: "pause-ad",
+      adId,
+      adName: adName || null,
+      reason: reason || null,
+      success: true,
+      result,
+    });
+    res.json({ ok: true, adId, result });
+  } catch (err) {
+    appendAction({
+      type: "pause-ad",
+      adId,
+      adName: adName || null,
+      reason: reason || null,
+      success: false,
+      error: String(err.message || err),
+    });
+    res.status(500).json({ error: String(err.message || err), graphError: err.graphError || null });
+  }
+});
+
+// GET /api/optimize/actions — 歷史紀錄
+app.get("/api/optimize/actions", (req, res) => {
+  try {
+    const arr = JSON.parse(fs.readFileSync(ACTIONS_FILE, "utf8"));
+    res.json(arr.slice(-50).reverse());
+  } catch (e) {
+    res.json([]);
+  }
+});
+
+
+// ============================================================
 // /api/chat — single employee streaming
 // ============================================================
 app.post("/api/chat", async (req, res) => {
@@ -455,7 +540,7 @@ cron.schedule("0 9 * * 1", () => {
 
 cron.schedule("0 17 * * 5", () => {
   runScheduledTask("dex",
-    "請產出本週廣告成效報告。若无實際數據請使用模擬數據並標註。",
+    "請產出本週廣告成效報告。若無實際數據請使用模擬數據並標註。",
     "weekly-analytics-report");
 }, { timezone: CRON_TZ });
 
