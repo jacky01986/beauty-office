@@ -306,6 +306,48 @@ app.post("/api/optimize/execute-budget-change", async (req, res) => {
 
 
 // ============================================================
+// /api/intel/* — T2: 競品情報（Meta Ad Library）
+// ============================================================
+
+// GET /api/intel/competitor-ads?brand=法朋&country=TW
+app.get("/api/intel/competitor-ads", async (req, res) => {
+  try {
+    const brand = req.query.brand;
+    if (!brand) return res.status(400).json({ error: "brand required" });
+    const country = req.query.country || "TW";
+    const limit = Number(req.query.limit) || 25;
+    const data = await meta.searchAdsLibrary({ searchTerms: brand, country, limit });
+    res.json(data);
+  } catch (err) {
+    console.error("[competitor-ads]", err);
+    res.status(500).json({
+      error: String(err.message || err),
+      graphError: err.graphError || null,
+      fallbackUrl: `https://www.facebook.com/ads/library/?ad_type=all&country=${req.query.country || "TW"}&q=${encodeURIComponent(req.query.brand || "")}`,
+    });
+  }
+});
+
+// GET /api/intel/competitor-scan?country=TW — 掃預設競品名單
+app.get("/api/intel/competitor-scan", async (req, res) => {
+  try {
+    const country = req.query.country || "TW";
+    const limit = Number(req.query.limit) || 10;
+    const data = await meta.scanCompetitors({ country, limit });
+    res.json(data);
+  } catch (err) {
+    console.error("[competitor-scan]", err);
+    res.status(500).json({ error: String(err.message || err), graphError: err.graphError || null });
+  }
+});
+
+// GET /api/intel/competitors — 返回預設競品名單
+app.get("/api/intel/competitors", (req, res) => {
+  res.json(meta.DEFAULT_COMPETITORS);
+});
+
+
+// ============================================================
 // /api/chat — single employee streaming
 // ============================================================
 app.post("/api/chat", async (req, res) => {
