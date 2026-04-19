@@ -19,6 +19,7 @@ const { EMPLOYEES } = require("./employees");
 const meta = require("./meta");
 const line = require("./line");
 const google = require("./google");
+const customers = require("./customers");
 const multer = require("multer");
 
 // Employees that benefit from Meta live data in their prompt
@@ -116,6 +117,7 @@ app.get('/', (req, res, next) => {
       <a href="/competitor.html" style="color:#B08D57;text-decoration:none;padding:6px 12px;background:rgba(176,141,87,0.08);border-radius:6px;font-size:12px;letter-spacing:1px;border:1px solid rgba(176,141,87,0.3);">📡 競品追蹤</a>
       <a href="/social.html" style="color:#B08D57;text-decoration:none;padding:6px 12px;background:rgba(176,141,87,0.08);border-radius:6px;font-size:12px;letter-spacing:1px;border:1px solid rgba(176,141,87,0.3);">📱 FB/IG</a>
       <a href="/google.html" style="color:#4285F4;text-decoration:none;padding:6px 12px;background:rgba(66,133,244,0.08);border-radius:6px;font-size:12px;letter-spacing:1px;border:1px solid rgba(66,133,244,0.3);">📊 Google Ads</a>
+      <a href="/customers.html" style="color:#ff9f68;text-decoration:none;padding:6px 12px;background:rgba(255,159,104,0.08);border-radius:6px;font-size:12px;letter-spacing:1px;border:1px solid rgba(255,159,104,0.3);">👥 客人畫像</a>
       <a href="/line.html" style="color:#06C755;text-decoration:none;padding:6px 12px;background:rgba(6,199,85,0.08);border-radius:6px;font-size:12px;letter-spacing:1px;border:1px solid rgba(6,199,85,0.3);">💬 LINE</a>
     </div>`;
     const injected = html.replace('</body>', navHtml + '</body>');
@@ -1142,6 +1144,167 @@ app.post("/api/google/analyze", async (req, res) => {
     });
     const analysis = (msg.content || []).map(c => c.text || "").join("\n");
     res.json({ ok: true, analysis, scope, dateRange });
+  } catch (err) {
+    res.status(500).json({ error: String(err.message || err) });
+  }
+});
+
+// ============================================================
+// /api/customers/* — LINE 客人畫像 + RFM 分群 (T8)
+// ============================================================
+
+// GET /api/customers?refresh=1
+app.get("/api/customers", (req, res) => {
+  try {
+    const msgs = customers.loadMessages(DATA_DIR);
+    const profiles = customers.loadCustomerProfiles(DATA_DIR);
+    const list = customers.aggregateCustomers(msgs, profiles);
+    const groups = customers.groupBySegment(list);
+    const summary = {
+      total: list.length,
+      vip: groups.vip.length,
+      active: groups.active.length,
+      new: groups.new.length,
+      atrisk: groups.atrisk.length,
+    };
+    res.json({ ok: true, summary, groups, segments: customers.SEGMENTS });
+  } catch (err) {
+    res.status(500).json({ error: String(err.message || err) });
+  }
+});
+
+// GET /api/customers/:userId
+app.get("/api/customers/:userId", (req, res) => {
+  try {
+    const msgs = customers.loadMessages(DATA_DIR);
+    const profiles = customers.loadCustomerProfiles(DATA_DIR);
+    const list = customers.aggregateCustomers(msgs, profiles);
+    const c = list.find(x => x.userId === req.params.userId);
+    if (!c) return res.status(404).json({ error: "customer not found" });
+    res.json({ ok: true, customer: c });
+  } catch (err) {
+    res.status(500).json({ error: String(err.message || err) });
+  }
+});
+
+// POST /api/customers/:userId/analyze — AI 生成畫像
+app.post("/api/customers/:userId/analyze", async (req, res) => {
+  if (!anthropic) return res.status(500).json({ error: "ANTHROPIC_API_KEY not set" });
+  try {
+    const msgs = customers.loadMessages(DATA_DIR);
+    const list = customers.aggregateCustomers(msgs, customers.loadCustomerProfiles(DATA_DIR));
+    const c = list.find(x => x.userId === req.params.userId);
+    if (!c) return res.status(404).json({ error: "customer not found" });
+
+    const history = c.messages.slice(0, 30).reverse().map(m => `[${m.intent}] ${m.text}${m.replyText ? " → 店回覆：" + m.replyText.slice(0,60) : ""}`).join("\n");
+    const systemPrompt = `你是 MACARON DE LUXE 溫點的客人分析師。根據客人與品牌客服的 LINE 對話紀錄，推測客人畫像並給出具體行動建議。品牌賣法式馬卡龍（6 入 NT$880 / 12 入 NT$1,580，冷藏 7 天），4 間分店：台南本店/新光西門 B2/中港 B2/南西 B2。
+
+回覆 JSON：
+{
+  "profile": "一段 2-3 句話的客人畫像（推測年齡、身份、動機）",
+  "preferences": ["偏好 1", "偏好 2", "偏好 3"],
+  "tags": ["短標籤1", "短標籤2", "短標籤3"],
+  "nextContact": "建議下次聯絡時機與訊息主題",
+  "suggestedMessage": "一段 50-80 字可以直接發給這位客人的 LINE 訊息（繁中、友善、具體）"
+}
+
+不要加任何說明，只回純 JSON。`;
+    const userPrompt = `客人名稱：${c.userName}\n訊息數：${c.frequency}\n最近一次對話：${c.recencyDays} 天前\n意圖分佈：${JSON.stringify(c.intents)}\n分組：${c.segment}\n\n對話紀錄（最多 30 則，舊→新）：\n${history}`;
+
+    const msg = await anthropic.messages.create({
+      model: DIRECTOR_MODEL,
+      max_tokens: 1024,
+      system: systemPrompt,
+      messages: [{ role: "user", content: userPrompt }],
+    });
+    const raw = (msg.content || []).map(x => x.text || "").join("");
+    const jsonMatch = raw.match(/\{[\s\S]*\}/);
+    const parsed = jsonMatch ? JSON.parse(jsonMatch[0]) : null;
+    if (!parsed) return res.status(500).json({ error: "AI 回覆無法解析", raw: raw.slice(0,300) });
+
+    // 存 profile
+    const profiles = customers.loadCustomerProfiles(DATA_DIR);
+    profiles[c.userId] = {
+      aiProfile: parsed.profile,
+      preferences: parsed.preferences || [],
+      tags: parsed.tags || [],
+      nextContact: parsed.nextContact,
+      suggestedMessage: parsed.suggestedMessage,
+      updatedAt: new Date().toISOString(),
+    };
+    customers.saveCustomerProfiles(DATA_DIR, profiles);
+    res.json({ ok: true, profile: profiles[c.userId] });
+  } catch (err) {
+    res.status(500).json({ error: String(err.message || err) });
+  }
+});
+
+// POST /api/customers/segment-broadcast
+// body: { segment: "vip"|"active"|"new"|"atrisk", brief: "..." } 
+// NOVA 寫給該組的客製廣播草稿
+app.post("/api/customers/segment-broadcast", async (req, res) => {
+  if (!anthropic) return res.status(500).json({ error: "ANTHROPIC_API_KEY not set" });
+  const { segment = "active", brief = "" } = req.body || {};
+  try {
+    const msgs = customers.loadMessages(DATA_DIR);
+    const list = customers.aggregateCustomers(msgs, customers.loadCustomerProfiles(DATA_DIR));
+    const groups = customers.groupBySegment(list);
+    const group = groups[segment] || [];
+    const segMeta = customers.SEGMENTS[segment];
+
+    const sampleTags = [...new Set(group.slice(0, 20).flatMap(c => c.tags || []))].slice(0, 10);
+    const sampleIntents = {};
+    group.forEach(c => {
+      Object.entries(c.intents || {}).forEach(([k, v]) => { sampleIntents[k] = (sampleIntents[k] || 0) + v; });
+    });
+
+    const emp = EMPLOYEES["nova"];
+    const systemPrompt = (emp?.systemPrompt || "你是 NOVA，MACARON DE LUXE 的社群小編。") + `\n\n本次任務：針對 ${segMeta.label} 這組客人（${group.length} 人，特色：${segMeta.desc}）寫 3 個 LINE 廣播草稿。每個風格不同。`;
+    const userPrompt = `客人組別：${segMeta.label}（${group.length} 人）\n這組客人常見意圖：${JSON.stringify(sampleIntents)}\n常見標籤：${sampleTags.join("、") || "（尚未分析）"}\n\n本次 brief：${brief || "（無特別主題，請自己發揮）"}\n\n請輸出 JSON 陣列，3 個元素，每個是 { "style": "版本名", "text": "訊息內容" }。只回 JSON。`;
+
+    const msg = await anthropic.messages.create({
+      model: DIRECTOR_MODEL,
+      max_tokens: 1500,
+      system: systemPrompt,
+      messages: [{ role: "user", content: userPrompt }],
+    });
+    const raw = (msg.content || []).map(x => x.text || "").join("");
+    const jsonMatch = raw.match(/\[[\s\S]*\]/);
+    const drafts = jsonMatch ? JSON.parse(jsonMatch[0]) : [];
+    res.json({ ok: true, segment, groupSize: group.length, drafts });
+  } catch (err) {
+    res.status(500).json({ error: String(err.message || err) });
+  }
+});
+
+// POST /api/customers/segment-push
+// body: { segment, text, imageUrl?, linkUrl?, linkLabel?, confirmed:true }
+// 對該組所有客人 push（不是 broadcast 給全部好友）
+app.post("/api/customers/segment-push", async (req, res) => {
+  const { segment = "active", text, imageUrl, linkUrl, linkLabel, confirmed } = req.body || {};
+  if (confirmed !== true) return res.status(400).json({ error: "must include confirmed:true" });
+  try {
+    const msgs = customers.loadMessages(DATA_DIR);
+    const list = customers.aggregateCustomers(msgs, customers.loadCustomerProfiles(DATA_DIR));
+    const groups = customers.groupBySegment(list);
+    const group = groups[segment] || [];
+    if (group.length === 0) return res.status(400).json({ error: "該組沒有客人" });
+
+    const messages = line.buildMessages({ text, imageUrl, linkUrl, linkLabel });
+    if (messages.length === 0) return res.status(400).json({ error: "no messages to send" });
+
+    const results = [];
+    for (const c of group) {
+      try {
+        await line.pushMessage(c.userId, messages);
+        results.push({ userId: c.userId, ok: true });
+      } catch (e) {
+        results.push({ userId: c.userId, ok: false, error: String(e.message || e) });
+      }
+    }
+    const success = results.filter(r => r.ok).length;
+    appendAction({ type: "segment-push", segment, total: group.length, success, preview: (text || "").slice(0, 60) });
+    res.json({ ok: true, segment, total: group.length, success, failed: group.length - success, results });
   } catch (err) {
     res.status(500).json({ error: String(err.message || err) });
   }
