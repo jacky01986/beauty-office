@@ -855,7 +855,78 @@ async function publishFbPhoto({ pageId = process.env.META_FB_PAGE_ID, imageUrl, 
   });
 }
 
+
+// ============================================================
+// Token 自動刷新 (T10)
+// ============================================================
+// 用 META_APP_ID + META_APP_SECRET 把現有 user token 換成 60 天 long-lived
+// 再從 long-lived user token 換 page access token（永不過期）
+
+async function refreshUserToken() {
+  if (!process.env.META_APP_ID || !process.env.META_APP_SECRET) {
+    throw new Error("META_APP_ID / META_APP_SECRET 未設定");
+  }
+  if (!process.env.META_ACCESS_TOKEN) {
+    throw new Error("META_ACCESS_TOKEN 未設定");
+  }
+  const url = `https://graph.facebook.com/v18.0/oauth/access_token?grant_type=fb_exchange_token&client_id=${encodeURIComponent(process.env.META_APP_ID)}&client_secret=${encodeURIComponent(process.env.META_APP_SECRET)}&fb_exchange_token=${encodeURIComponent(process.env.META_ACCESS_TOKEN)}`;
+  const res = await fetch(url);
+  const data = await res.json();
+  if (!res.ok) throw new Error(`refresh failed: ${data.error?.message || res.status}`);
+  // data: { access_token, token_type, expires_in }
+  return {
+    token: data.access_token,
+    expiresIn: data.expires_in, // seconds, 通常 ~5184000 (60 天)
+    expiresAt: new Date(Date.now() + (data.expires_in || 5184000) * 1000).toISOString(),
+  };
+}
+
+async function getLongLivedPageToken() {
+  // 從 current user token 拿 page token（若來自 long-lived user token，則 page token 永不過期）
+  const data = await graphGet(`/me/accounts?fields=id,name,access_token&access_token=${process.env.META_ACCESS_TOKEN}`);
+  const pages = data?.data || [];
+  return pages.map(p => ({ id: p.id, name: p.name, pageToken: p.access_token }));
+}
+
+async function inspectToken(token) {
+  // 用 App Token 查某個 token 的 debug 資訊（過期時間、scope...）
+  if (!process.env.META_APP_ID || !process.env.META_APP_SECRET) return { error: "App ID/Secret 未設定" };
+  const appToken = `${process.env.META_APP_ID}|${process.env.META_APP_SECRET}`;
+  const url = `https://graph.facebook.com/v18.0/debug_token?input_token=${encodeURIComponent(token || process.env.META_ACCESS_TOKEN)}&access_token=${encodeURIComponent(appToken)}`;
+  const res = await fetch(url);
+  const data = await res.json();
+  if (!res.ok) return { error: data.error?.message };
+  return data.data;
+}
+
+async function getTokenStatus() {
+  const out = { tokenSet: tokenOk(), appConfigured: !!(process.env.META_APP_ID && process.env.META_APP_SECRET) };
+  if (!out.tokenSet) return out;
+  try {
+    const info = await inspectToken(process.env.META_ACCESS_TOKEN);
+    out.tokenInfo = info;
+    if (info?.expires_at) {
+      out.expiresAt = new Date(info.expires_at * 1000).toISOString();
+      const daysLeft = Math.floor((info.expires_at * 1000 - Date.now()) / (24*3600*1000));
+      out.daysLeft = daysLeft;
+      out.needRefresh = daysLeft < 10;
+    } else if (info?.expires_at === 0) {
+      out.expiresAt = "never"; // Page token 永不過期
+      out.daysLeft = Infinity;
+    }
+    if (info?.scopes) out.scopes = info.scopes;
+    if (info?.type) out.tokenType = info.type;
+  } catch (e) {
+    out.tokenInfo = { error: String(e.message || e) };
+  }
+  return out;
+}
+
 module.exports = {
+  refreshUserToken,
+  getLongLivedPageToken,
+  inspectToken,
+  getTokenStatus,
   tokenOk,
   graphGet,
   graphPost,
