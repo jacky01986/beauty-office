@@ -1,5 +1,5 @@
 // ============================================================
-// MACARON DE LUXE · Virtual Office Server v2
+// ofz beauty academy · Virtual Office Server v2
 // ------------------------------------------------------------
 // 1. /api/employees           — 員工清單
 // 2. /api/chat                — 一般單一員工 SSE 對話
@@ -471,7 +471,7 @@ Brief：${brief}
 要求：
 - 回傳 JSON 陣列格式：[{"style":"風格名","caption":"內容"}, ...]
 - 每個草稿的 style 標題要不同（例如：情感型、功能型、好奇心型、情境型）
-- caption 要符合 MACARON DE LUXE 品牌語調（精品、內斂、不農場標題）
+- caption 要符合 ofz beauty academy 品牌語調（精品、內斂、不農場標題）
 - FB 貼文 150-300 字，IG 貼文 80-150 字 + 3-5 個 hashtag
 - 直接回 JSON 陣列，不要任何前後綴或 markdown`;
 
@@ -1211,15 +1211,15 @@ async function handleLineEvent(event) {
   let draft = null;
   if (anthropic) {
     try {
-      const sysPrompt = `你是 MACARON DE LUXE 的客服助理。
+      const sysPrompt = `你是 ofz beauty academy 的客服助理。
 會收到客人的 LINE 訊息，請做兩件事並輸出 JSON：
 1. 意圖分類：price / pickup / storage / gifting / complaint / product / other
 2. 建議的回覆草稿（精品語調、直接切入、不囉嗦）
 
 品牌資訊（用來回答）：
 - 4 家門店：台南本店、新光西門 B2、新光中港 B2、新光南西 B2
-- 核心商品：6 入 NT$880、12 入 NT$1,580、禮盒 NT$480–2,280
-- 保存期限：冷藏 7 天，常溫 6 小時
+- 核心療程：飄眉 NT$3,500 / 飄霧眉 NT$5,500 / 霧眉 NT$4,500 / 霧唇 NT$4,500
+- 保存期限：療程後 7 天觀察期，常溫 6 小時
 - 不含防腐劑，每日現做
 
 輸出格式：
@@ -1492,7 +1492,7 @@ app.post("/api/customers/:userId/analyze", async (req, res) => {
     if (!c) return res.status(404).json({ error: "customer not found" });
 
     const history = c.messages.slice(0, 30).reverse().map(m => `[${m.intent}] ${m.text}${m.replyText ? " → 店回覆：" + m.replyText.slice(0,60) : ""}`).join("\n");
-    const systemPrompt = `你是 MACARON DE LUXE 溫點的客人分析師。根據客人與品牌客服的 LINE 對話紀錄，推測客人畫像並給出具體行動建議。品牌賣法式馬卡龍（6 入 NT$880 / 12 入 NT$1,580，冷藏 7 天），4 間分店：台南本店/新光西門 B2/中港 B2/南西 B2。
+    const systemPrompt = `你是 ofz beauty academy 的客人分析師。根據客人與品牌客服的 LINE 對話紀錄，推測客人畫像並給出具體行動建議。品牌主打紋繡療程（飄眉 NT$3,500 / 飄霧眉 NT$5,500 / 霧眉 NT$4,500 / 霧唇 NT$4,500，療程後 7 天觀察期），3 家分店 12 位老師。
 
 回覆 JSON：
 {
@@ -1554,7 +1554,7 @@ app.post("/api/customers/segment-broadcast", async (req, res) => {
     });
 
     const emp = EMPLOYEES["nova"];
-    const systemPrompt = (emp?.systemPrompt || "你是 NOVA，MACARON DE LUXE 的社群小編。") + `\n\n本次任務：針對 ${segMeta.label} 這組客人（${group.length} 人，特色：${segMeta.desc}）寫 3 個 LINE 廣播草稿。每個風格不同。`;
+    const systemPrompt = (emp?.systemPrompt || "你是 NOVA，ofz beauty academy 的社群小編。") + `\n\n本次任務：針對 ${segMeta.label} 這組客人（${group.length} 人，特色：${segMeta.desc}）寫 3 個 LINE 廣播草稿。每個風格不同。`;
     const userPrompt = `客人組別：${segMeta.label}（${group.length} 人）\n這組客人常見意圖：${JSON.stringify(sampleIntents)}\n常見標籤：${sampleTags.join("、") || "（尚未分析）"}\n\n本次 brief：${brief || "（無特別主題，請自己發揮）"}\n\n請輸出 JSON 陣列，3 個元素，每個是 { "style": "版本名", "text": "訊息內容" }。只回 JSON。`;
 
     const msg = await anthropic.messages.create({
@@ -1643,7 +1643,7 @@ Brief：${brief}
 app.get("/healthz", (req, res) => res.json({ ok: true, model: MODEL, employees: Object.keys(EMPLOYEES).length }));
 
 app.listen(PORT, () => {
-  console.log(`\n🥐 MACARON DE LUXE · Virtual Office v2`);
+  console.log(`\n🥐 ofz beauty academy · Virtual Office v2`);
   console.log(`   Listening on http://localhost:${PORT}`);
   console.log(`   Model: ${MODEL} | Director: ${DIRECTOR_MODEL}`);
   console.log(`   Employees: ${Object.keys(EMPLOYEES).length}`);
