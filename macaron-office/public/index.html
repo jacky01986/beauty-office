@@ -6,18 +6,18 @@
 <title>OFZ BEAUTY ACADEMY · 虛擬辦公室</title>
 <style>
   :root {
-    --burgundy: #6D2E46;
+    --burgundy: #B76E79;
     --burgundy-dark: #4A1D2E;
-    --burgundy-light: #8B3A4E;
-    --gold: #B08D57;
-    --gold-bright: #D4AF7A;
-    --ivory: #FCF6F5;
-    --dark: #1C1213;
-    --dark-2: #2A1C1D;
-    --dark-3: #362527;
-    --muted: #8B7278;
+    --burgundy-light: #D4A3AC;
+    --gold: #C9A27C;
+    --gold-bright: #D4B896;
+    --ivory: #4A3628;
+    --dark: #FAF3ED;
+    --dark-2: #FFFFFF;
+    --dark-3: #F5EADF;
+    --muted: #8A7560;
     --green: #7FB069;
-    --amber: #E8B54B;
+    --amber: #D4B896;
   }
   * { box-sizing: border-box; margin: 0; padding: 0; }
   html, body {
@@ -835,13 +835,13 @@ async function sendSingle(text) {
         addFeed(emp.name, `✅ 任務完成（${p.length || accumulated.length} 字）`);
       },
       error: (p) => {
-        bubbleEl.innerHTML = `<p style="color:#E8B54B;">⚠️ ${escapeHtml(p.message)}</p>`;
+        bubbleEl.innerHTML = `<p style="color:#D4B896;">⚠️ ${escapeHtml(p.message)}</p>`;
         aiMsg.content = bubbleEl.innerHTML;
         addFeed(emp.name, `❌ ${p.message}`);
       },
     });
   } catch (err) {
-    bubbleEl.innerHTML = `<p style="color:#E8B54B;">⚠️ 連線失敗：${escapeHtml(err.message)}</p>`;
+    bubbleEl.innerHTML = `<p style="color:#D4B896;">⚠️ 連線失敗：${escapeHtml(err.message)}</p>`;
     aiMsg.content = bubbleEl.innerHTML;
     addFeed(emp.name, `❌ ${err.message}`);
   }
@@ -1006,7 +1006,7 @@ async function sendOrchestrate(text) {
         employeeStatus[p.employeeId] = 'idle';
         updateEmployeeStatusOnly();
         if (workerOutputMsgs[p.employeeId]) {
-          workerOutputMsgs[p.employeeId].content = `<p style="color:#E8B54B;">⚠️ ${escapeHtml(p.message || '執行錯誤')}</p>`;
+          workerOutputMsgs[p.employeeId].content = `<p style="color:#D4B896;">⚠️ ${escapeHtml(p.message || '執行錯誤')}</p>`;
         }
         if (currentEmployee === p.employeeId) rebuildConversation();
       },
@@ -1035,12 +1035,12 @@ async function sendOrchestrate(text) {
         containerMsg.content = bubbleEl.innerHTML;
       },
       error: (p) => {
-        bubbleEl.innerHTML += `<p style="color:#E8B54B;">⚠️ ${escapeHtml(p.message)}</p>`;
+        bubbleEl.innerHTML += `<p style="color:#D4B896;">⚠️ ${escapeHtml(p.message)}</p>`;
         addFeed(director.name, `❌ ${p.message}`);
       },
     });
   } catch (err) {
-    bubbleEl.innerHTML += `<p style="color:#E8B54B;">⚠️ 連線失敗：${escapeHtml(err.message)}</p>`;
+    bubbleEl.innerHTML += `<p style="color:#D4B896;">⚠️ 連線失敗：${escapeHtml(err.message)}</p>`;
     addFeed(director.name, `❌ ${err.message}`);
   }
 }
