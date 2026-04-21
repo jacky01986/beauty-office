@@ -1,5 +1,5 @@
 // ============================================================
-// MACARON DE LUXE · LINE Messaging API Client (T4.5 / T4.6)
+// ofz beauty academy · LINE Messaging API Client (T4.5 / T4.6)
 // ============================================================
 // Required env vars:
 //   LINE_CHANNEL_ACCESS_TOKEN   Long-lived channel access token
