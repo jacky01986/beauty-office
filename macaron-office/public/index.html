@@ -7,7 +7,7 @@
 <style>
   :root {
     --burgundy: #8E3D4B;
-    --burgundy-dark: #4A1D2E;
+    --burgundy-dark: #EFD4D8;
     --burgundy-light: #B67D88;
     --gold: #A37849;
     --gold-bright: #B8935F;
@@ -152,7 +152,7 @@
   @keyframes fadeIn { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: translateY(0); } }
   .msg.user { margin-left: auto; max-width: 80%; }
   .msg.user .bubble {
-    background: var(--burgundy); color: var(--ivory);
+    background: var(--burgundy); color: #FDF7EE;
     border-radius: 16px 16px 4px 16px; padding: 12px 18px;
     border: 1px solid var(--burgundy-light);
   }
@@ -176,7 +176,7 @@
   .msg.ai .bubble em { color: var(--ivory); font-style: italic; }
   .msg.ai .bubble code { background: var(--dark); padding: 2px 6px; border-radius: 4px; font-family: Menlo, monospace; font-size: 12px; color: var(--gold-bright); display: inline-block; }
   .msg.ai .bubble .tldr {
-    background: var(--burgundy-dark); border-left: 2px solid var(--gold);
+    background: #EFD4D8; color: var(--ivory); border-left: 3px solid var(--burgundy);
     padding: 10px 14px; margin: 6px 0 12px;
     font-style: italic; border-radius: 4px; font-size: 13px;
   }
@@ -184,11 +184,11 @@
     width: 100%; border-collapse: collapse; margin: 10px 0; font-size: 12px;
   }
   .msg.ai .bubble table.data th {
-    background: var(--burgundy); color: var(--ivory); padding: 6px 10px;
+    background: var(--burgundy); color: #FDF7EE; padding: 6px 10px;
     text-align: left; font-family: Georgia, serif; font-size: 11px;
   }
   .msg.ai .bubble table.data td {
-    border: 1px solid var(--burgundy-dark); padding: 6px 10px; color: var(--ivory);
+    border: 1px solid var(--burgundy); padding: 6px 10px; color: var(--ivory);
   }
   .thinking { display: inline-flex; gap: 5px; padding: 6px 0; }
   .thinking span { width: 7px; height: 7px; border-radius: 50%; background: var(--gold); animation: bounce 1.4s infinite; }
