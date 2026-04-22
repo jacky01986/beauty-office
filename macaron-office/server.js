@@ -117,10 +117,10 @@ app.get('/', (req, res, next) => {
   const indexPath = path.join(__dirname, 'public', 'index.html');
   fs.readFile(indexPath, 'utf8', (err, html) => {
     if (err) return next();
-    const navHtml = `<div id="__app_nav" style="position:fixed;top:14px;right:14px;z-index:9999;display:flex;gap:8px;background:rgba(26,20,22,0.95);padding:8px 10px;border-radius:10px;border:1px solid #6D2E46;box-shadow:0 4px 14px rgba(0,0,0,0.5);font-family:-apple-system,'PingFang TC',sans-serif;">
-      <a href="/optimize.html" style="color:#B08D57;text-decoration:none;padding:6px 12px;background:rgba(176,141,87,0.08);border-radius:6px;font-size:12px;letter-spacing:1px;border:1px solid rgba(176,141,87,0.3);">⚡ 廣告體檢</a>
-      <a href="/competitor.html" style="color:#B08D57;text-decoration:none;padding:6px 12px;background:rgba(176,141,87,0.08);border-radius:6px;font-size:12px;letter-spacing:1px;border:1px solid rgba(176,141,87,0.3);">📡 競品追蹤</a>
-      <a href="/social.html" style="color:#B08D57;text-decoration:none;padding:6px 12px;background:rgba(176,141,87,0.08);border-radius:6px;font-size:12px;letter-spacing:1px;border:1px solid rgba(176,141,87,0.3);">📱 FB/IG</a>
+    const navHtml = `<div id="__app_nav" style="position:fixed;top:14px;right:14px;z-index:9999;display:flex;gap:8px;background:rgba(255,255,255,0.96);padding:8px 10px;border-radius:10px;border:1px solid #B76E79;box-shadow:0 6px 20px rgba(183,110,121,0.18);font-family:-apple-system,'PingFang TC',sans-serif;">
+      <a href="/optimize.html" style="color:#C9A27C;text-decoration:none;padding:6px 12px;background:rgba(201,162,124,0.12);border-radius:6px;font-size:12px;letter-spacing:1px;border:1px solid rgba(201,162,124,0.45);">⚡ 廣告體檢</a>
+      <a href="/competitor.html" style="color:#C9A27C;text-decoration:none;padding:6px 12px;background:rgba(201,162,124,0.12);border-radius:6px;font-size:12px;letter-spacing:1px;border:1px solid rgba(201,162,124,0.45);">📡 競品追蹤</a>
+      <a href="/social.html" style="color:#C9A27C;text-decoration:none;padding:6px 12px;background:rgba(201,162,124,0.12);border-radius:6px;font-size:12px;letter-spacing:1px;border:1px solid rgba(201,162,124,0.45);">📱 FB/IG</a>
       <a href="/google.html" style="color:#4285F4;text-decoration:none;padding:6px 12px;background:rgba(66,133,244,0.08);border-radius:6px;font-size:12px;letter-spacing:1px;border:1px solid rgba(66,133,244,0.3);">📊 Google Ads</a>
       <a href="/customers.html" style="color:#ff9f68;text-decoration:none;padding:6px 12px;background:rgba(255,159,104,0.08);border-radius:6px;font-size:12px;letter-spacing:1px;border:1px solid rgba(255,159,104,0.3);">👥 客人畫像</a>
       <a href="/line.html" style="color:#06C755;text-decoration:none;padding:6px 12px;background:rgba(6,199,85,0.08);border-radius:6px;font-size:12px;letter-spacing:1px;border:1px solid rgba(6,199,85,0.3);">💬 LINE</a>
