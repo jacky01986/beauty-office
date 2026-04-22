@@ -6,12 +6,12 @@
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <style>
   :root {
-    --bg: #FAF3ED;
-    --card: #FFFFFF;
-    --card-2: #F9F0E5;
-    --border: #E3D1BF;
-    --gold: #C9A27C;
-    --text: #4A3628;
+    --bg: #F2E5D5;
+    --card: #FDF7EE;
+    --card-2: #F5E8D3;
+    --border: #C9AF96;
+    --gold: #A37849;
+    --text: #2E1E14;
     --muted: #998;
     --green: #3ddc84;
     --red: #ff6b6b;
@@ -109,7 +109,7 @@
   .ai-section p { margin: 4px 0; font-size: 12px; line-height: 1.6; }
   .ai-loading { color: var(--muted); font-style: italic; font-size: 12px; }
   .btn-primary {
-    width: 100%; padding: 8px 16px; background: var(--gold); color: #FFFFFF;
+    width: 100%; padding: 8px 16px; background: var(--gold); color: #FDF7EE;
     border: none; border-radius: 6px; font-size: 12px; font-weight: 600; cursor: pointer; margin-bottom: 6px;
   }
   .btn-primary:hover:not(:disabled) { background: #c9a470; }
@@ -140,7 +140,7 @@
   }
   .modal h2 { margin: 0 0 10px; color: var(--gold); }
   .modal textarea {
-    width: 100%; min-height: 100px; padding: 8px; background: #FAF3ED;
+    width: 100%; min-height: 100px; padding: 8px; background: #F2E5D5;
     border: 1px solid var(--border); color: var(--text); border-radius: 6px;
     font-size: 13px; margin: 6px 0;
   }
@@ -227,7 +227,7 @@ async function load() {
 function renderSummary(s) {
   $("summary-bar").innerHTML = `
     <span class="summary-item">總計 <b>${s.total}</b> 位客人</span>
-    <span class="summary-item" style="color:#C9A27C">🔥 VIP <b>${s.vip}</b></span>
+    <span class="summary-item" style="color:#A37849">🔥 VIP <b>${s.vip}</b></span>
     <span class="summary-item" style="color:#3ddc84">💚 活躍 <b>${s.active}</b></span>
     <span class="summary-item" style="color:#4285F4">🆕 新客 <b>${s.new}</b></span>
     <span class="summary-item" style="color:#ff6b6b">😴 流失 <b>${s.atrisk}</b></span>
