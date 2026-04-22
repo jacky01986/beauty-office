@@ -758,11 +758,30 @@ async function searchAdsLibrary({ searchTerms, country = "TW", limit = 25, adTyp
 
 // 內建競品名單（ofz beauty academy 紋繡業適用）
 const DEFAULT_COMPETITORS = [
-  { name: "法朋", slug: "lefait", category: "高端" },
-  { name: "Ladurée", slug: "laduree", category: "國際精品" },
-  { name: "Pierre Hermé", slug: "pierre-herme", category: "國際精品" },
-  { name: "亞尼克", slug: "yannick", category: "中階" },
-  { name: "鐵塔牌", slug: "eiffel-tower", category: "中階" },
+  // === 頂級 / 國際品牌紋繡沙龍 ===
+  { name: "韓式半永久化妝", slug: "korean-pmu", category: "B2C 高端療程" },
+  { name: "韓國美學院", slug: "korea-beauty-academy", category: "B2C 高端療程" },
+  { name: "PhiBrows", slug: "phibrows", category: "國際紋繡品牌" },
+  { name: "Nouveau Contour", slug: "nouveau-contour", category: "國際紋繡品牌" },
+  // === 台灣主要紋繡沙龍 ===
+  { name: "眉之堂", slug: "brow-house-tw", category: "B2C 中高端沙龍" },
+  { name: "雅韓美學", slug: "yahan-beauty", category: "B2C 中高端沙龍" },
+  { name: "Brow Queen", slug: "brow-queen-tw", category: "B2C 品牌沙龍" },
+  { name: "MB Brow", slug: "mb-brow", category: "B2C 品牌沙龍" },
+  { name: "悅美紋繡", slug: "yuemei-pmu", category: "B2C 品牌沙龍" },
+  { name: "飄眉工作室", slug: "piao-mei-studio", category: "B2C 小型工作室" },
+  // === 師資培訓 / 學院 ===
+  { name: "紋繡師培訓學院", slug: "pmu-training-academy", category: "B2B 培訓" },
+  { name: "韓國紋繡學院", slug: "korea-pmu-school", category: "B2B 培訓" },
+  { name: "美業職訓教室", slug: "beauty-vocational", category: "B2B 培訓" },
+  { name: "IFBC 美業認證", slug: "ifbc-taiwan", category: "B2B 認證機構" },
+  // === 線上美業平台（非直接競爭但會分走學員） ===
+  { name: "Hahow 好學校", slug: "hahow-beauty", category: "線上學習平台" },
+  { name: "YOTTA 友讀", slug: "yotta-beauty", category: "線上學習平台" },
+  // === 美業連鎖（橫向競品，同樣打女性族群） ===
+  { name: "薇閣美學", slug: "weige-beauty", category: "連鎖美業" },
+  { name: "Dr. Wu", slug: "dr-wu", category: "美業品牌" },
+  { name: "思薇爾", slug: "swear-beauty", category: "連鎖美業" },
 ];
 
 async function scanCompetitors({ competitors = null, country = "TW", limit = 10 } = {}) {
