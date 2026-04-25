@@ -20,6 +20,7 @@ const meta = require("./meta");
 const line = require("./line");
 const google = require("./google");
 const customers = require("./customers");
+const alerts = require("./alerts");
 const toolDefs = require("./tools");
 
 // In-memory proposal storage (保留在記憶體就好，重啟失效 OK)
@@ -1258,6 +1259,34 @@ cron.schedule("0 17 * * 5", () => {
     "weekly-analytics-report");
 }, { timezone: CRON_TZ });
 
+// ============================================================
+// 主動推播：每日 09:00 早安簡報 + 每 30 分鐘事件監控
+// ============================================================
+cron.schedule("0 9 * * *", async () => {
+  console.log("[alerts] running daily briefing...");
+  try {
+    const result = await alerts.dailyBriefing({
+      anthropic, model: MODEL, employees: EMPLOYEES, meta, customers, dataDir: DATA_DIR, line,
+    });
+    console.log("[alerts] daily briefing:", result.pushed && result.pushed.ok ? "pushed" : "skipped (" + (result.pushed && result.pushed.reason || result.reason) + ")");
+  } catch (err) {
+    console.error("[alerts daily]", err);
+  }
+}, { timezone: CRON_TZ });
+
+cron.schedule("*/30 * * * *", async () => {
+  try {
+    const result = await alerts.eventMonitor({
+      anthropic, model: MODEL, employees: EMPLOYEES, meta, customers, dataDir: DATA_DIR, line,
+    });
+    if (result.alerts && result.alerts.length > 0) {
+      console.log(`[alerts event] ${result.alerts.length} alerts pushed`);
+    }
+  } catch (err) {
+    console.error("[alerts event]", err);
+  }
+}, { timezone: CRON_TZ });
+
 
 // ============================================================
 // /api/line/* — LINE 客服 + 廣播 (T4.5)
@@ -1285,6 +1314,32 @@ async function handleLineEvent(event) {
   let profile = null;
   if (userId) {
     try { profile = await line.getUserProfile(userId); } catch (e) {}
+  }
+
+  // 偵測 admin 註冊指令：使用者在 LINE Bot 對話傳「/admin」就把 userId 存起來
+  if (text.trim() === "/admin" || text.trim() === "/admin註冊") {
+    if (userId) {
+      alerts.registerAdminFromLine(DATA_DIR, userId, profile && profile.displayName);
+      try {
+        await line.replyMessage(replyToken, [{
+          type: "text",
+          text: `✅ 已註冊為 admin！\n\n你會收到：\n📊 每日早上 09:00 早安簡報\n⚠️ 廣告/客戶/預算 即時警示\n\n第一份簡報明天早上見。先傳「/admin test」可以馬上跑一份測試簡報。`,
+        }]);
+      } catch (e) {}
+    }
+    return;
+  }
+
+  // admin 手動觸發測試簡報
+  if (text.trim() === "/admin test" || text.trim() === "/admin 測試") {
+    const adminData = alerts.loadAdmin(DATA_DIR);
+    if (!adminData.lineUserId || adminData.lineUserId !== userId) {
+      try { await line.replyMessage(replyToken, [{ type: "text", text: "⚠️ 你不是 admin，請先傳 /admin 註冊" }]); } catch (e) {}
+      return;
+    }
+    try { await line.replyMessage(replyToken, [{ type: "text", text: "🔄 正在跑早安簡報，30 秒內傳給你..." }]); } catch (e) {}
+    alerts.dailyBriefing({ anthropic, model: MODEL, employees: EMPLOYEES, meta, customers, dataDir: DATA_DIR, line }).catch(err => console.error("[alerts test]", err));
+    return;
   }
 
   // 用 Claude 分類意圖 + 寫草稿
@@ -1720,6 +1775,36 @@ Brief：${brief}
   }
 });
 
+
+// ============================================================
+// /api/alerts/* — 主動推播 API
+// ============================================================
+app.get("/api/alerts/admin", (req, res) => {
+  const a = alerts.loadAdmin(DATA_DIR);
+  res.json({ registered: !!a.lineUserId, registeredAt: a.registeredAt, userName: a.userName });
+});
+
+app.post("/api/alerts/test-daily", async (req, res) => {
+  try {
+    const result = await alerts.dailyBriefing({
+      anthropic, model: MODEL, employees: EMPLOYEES, meta, customers, dataDir: DATA_DIR, line,
+    });
+    res.json(result);
+  } catch (err) {
+    res.status(500).json({ error: String(err.message || err) });
+  }
+});
+
+app.post("/api/alerts/test-event", async (req, res) => {
+  try {
+    const result = await alerts.eventMonitor({
+      anthropic, model: MODEL, employees: EMPLOYEES, meta, customers, dataDir: DATA_DIR, line,
+    });
+    res.json(result);
+  } catch (err) {
+    res.status(500).json({ error: String(err.message || err) });
+  }
+});
 
 app.get("/healthz", (req, res) => res.json({ ok: true, model: MODEL, employees: Object.keys(EMPLOYEES).length }));
 
