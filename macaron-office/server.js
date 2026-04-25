@@ -30,12 +30,30 @@ const multer = require("multer");
 // Employees that benefit from Meta live data in their prompt
 const META_AWARE_EMPLOYEES = new Set(["victor", "leon", "camille", "aria", "dex", "nova", "sofia", "milo", "emi"]);
 
+const FORMAT_ENFORCEMENT = `
+
+---
+【★ 輸出格式鐵則 (每一輪都必須遵守，包含第 2、3、4… 輪) ★】
+每次回覆都必須用 HTML 片段（不要純文字）：
+<h4>標題</h4>
+<p>段落</p>
+<ul><li>條列</li></ul>
+<div class="tldr">⚡ TL;DR｜重點結論</div>
+<table class="data"><thead><tr><th>項目</th><th>數字</th></tr></thead><tbody><tr><td>…</td><td>…</td></tr></tbody></table>
+<strong>粗體</strong>、<em>斜體</em>、<code>代碼</code>、<blockquote>引述</blockquote>
+
+禁止：純文字段落、Markdown (## / **), 只輸出 text 沒有 tags。
+每次都要用 <div class="tldr"> 開頭總結，這個習慣不可省略。
+
+如果對話進入第 2、3 輪以上，仍須保持上述 HTML 結構，不要因為是「繼續對話」就簡化。`;
+
 async function maybeAugmentSystemPrompt(emp) {
-  if (!META_AWARE_EMPLOYEES.has(emp.id) || !meta.tokenOk()) return emp.systemPrompt;
+  let baseSystem = emp.systemPrompt + FORMAT_ENFORCEMENT;
+  if (!META_AWARE_EMPLOYEES.has(emp.id) || !meta.tokenOk()) return baseSystem;
   try {
     const metaBlock = await meta.buildCoachDataBlock();
     const googleBlock = google.tokenOk() ? await google.buildCoachDataBlock() : null;
-    if (!metaBlock && !googleBlock) return emp.systemPrompt;
+    if (!metaBlock && !googleBlock) return baseSystem;
     let extra = "";
     if (metaBlock) {
       extra += "\n\n---\n[📡 COACHING DATA · Meta 即時數據快照]\n" +
@@ -46,10 +64,10 @@ async function maybeAugmentSystemPrompt(emp) {
       extra += "\n\n---\n[📊 COACHING DATA · Google Ads 即時數據快照]\n" +
         googleBlock + "\n\n(資料來源：Google Ads API)";
     }
-    return emp.systemPrompt + extra;
+    return baseSystem + extra;
   } catch (e) {
     console.warn(`[meta coaching-data] ${emp.id}:`, e.message);
-    return emp.systemPrompt;
+    return baseSystem;
   }
 }
 
@@ -121,7 +139,6 @@ app.get('/', (req, res, next) => {
       <a href="/optimize.html" style="color:#A37849;text-decoration:none;padding:6px 12px;background:rgba(163,120,73,0.14);border-radius:6px;font-size:12px;letter-spacing:1px;border:1px solid rgba(163,120,73,0.55);">⚡ 廣告體檢</a>
       <a href="/competitor.html" style="color:#A37849;text-decoration:none;padding:6px 12px;background:rgba(163,120,73,0.14);border-radius:6px;font-size:12px;letter-spacing:1px;border:1px solid rgba(163,120,73,0.55);">📡 競品追蹤</a>
       <a href="/social.html" style="color:#A37849;text-decoration:none;padding:6px 12px;background:rgba(163,120,73,0.14);border-radius:6px;font-size:12px;letter-spacing:1px;border:1px solid rgba(163,120,73,0.55);">📱 FB/IG</a>
-      <a href="/google.html" style="color:#4285F4;text-decoration:none;padding:6px 12px;background:rgba(66,133,244,0.08);border-radius:6px;font-size:12px;letter-spacing:1px;border:1px solid rgba(66,133,244,0.3);">📊 Google Ads</a>
       <a href="/customers.html" style="color:#ff9f68;text-decoration:none;padding:6px 12px;background:rgba(255,159,104,0.08);border-radius:6px;font-size:12px;letter-spacing:1px;border:1px solid rgba(255,159,104,0.3);">👥 客人畫像</a>
       <a href="/line.html" style="color:#06C755;text-decoration:none;padding:6px 12px;background:rgba(6,199,85,0.08);border-radius:6px;font-size:12px;letter-spacing:1px;border:1px solid rgba(6,199,85,0.3);">💬 LINE</a>
     </div>`;
@@ -206,6 +223,70 @@ app.get("/api/meta/status", async (req, res) => {
   } catch (err) {
     res.status(500).json({ error: String(err.message || err) });
   }
+});
+
+// /api/meta/assets — 列出 user 所有 FB Pages / IG Business / Ad Accounts（for switcher）
+app.get("/api/meta/assets", async (req, res) => {
+  try {
+    if (!meta.tokenOk()) return res.status(400).json({ error: "META_ACCESS_TOKEN not set" });
+    const token = process.env.META_ACCESS_TOKEN;
+    const GRAPH = "https://graph.facebook.com/v21.0";
+    // Pages (with linked IG)
+    const pagesResp = await fetch(`${GRAPH}/me/accounts?fields=id,name,username,category,access_token,instagram_business_account{id,username,name,profile_picture_url}&limit=50&access_token=${encodeURIComponent(token)}`);
+    const pagesJson = await pagesResp.json();
+    // Ad accounts
+    const adsResp = await fetch(`${GRAPH}/me/adaccounts?fields=id,account_id,name,currency,business_name,account_status&limit=50&access_token=${encodeURIComponent(token)}`);
+    const adsJson = await adsResp.json();
+    const pages = (pagesJson.data || []).map(p => ({
+      id: p.id,
+      name: p.name,
+      username: p.username,
+      category: p.category,
+      hasToken: !!p.access_token,
+      instagram: p.instagram_business_account ? {
+        id: p.instagram_business_account.id,
+        username: p.instagram_business_account.username,
+        name: p.instagram_business_account.name,
+        avatar: p.instagram_business_account.profile_picture_url,
+      } : null,
+    }));
+    const adAccounts = (adsJson.data || []).map(a => ({
+      id: a.id,                // act_xxxxx
+      accountId: a.account_id, // just the number
+      name: a.name,
+      currency: a.currency,
+      businessName: a.business_name,
+      status: a.account_status,
+    }));
+    const current = {
+      pageId: process.env.META_FB_PAGE_ID || null,
+      igId: process.env.META_IG_USER_ID || null,
+      adAccountId: process.env.META_AD_ACCOUNT_ID || null,
+      override: SESSION_OVERRIDE,
+    };
+    res.json({ pages, adAccounts, current });
+  } catch (err) {
+    res.status(500).json({ error: String(err.message || err) });
+  }
+});
+
+// /api/meta/switch — 切換目前使用中的粉絲頁/IG/廣告帳戶（session-level override）
+let SESSION_OVERRIDE = { pageId: null, igId: null, adAccountId: null };
+app.post("/api/meta/switch", express.json(), (req, res) => {
+  const { pageId, igId, adAccountId } = req.body || {};
+  if (pageId !== undefined) SESSION_OVERRIDE.pageId = pageId || null;
+  if (igId !== undefined) SESSION_OVERRIDE.igId = igId || null;
+  if (adAccountId !== undefined) SESSION_OVERRIDE.adAccountId = adAccountId || null;
+  // Update process.env so meta.js picks up the new IDs for subsequent API calls
+  if (SESSION_OVERRIDE.pageId) process.env.META_FB_PAGE_ID = SESSION_OVERRIDE.pageId;
+  if (SESSION_OVERRIDE.igId) process.env.META_IG_USER_ID = SESSION_OVERRIDE.igId;
+  if (SESSION_OVERRIDE.adAccountId) process.env.META_AD_ACCOUNT_ID = String(SESSION_OVERRIDE.adAccountId).replace(/^act_/, '');
+  res.json({ ok: true, current: {
+    pageId: process.env.META_FB_PAGE_ID,
+    igId: process.env.META_IG_USER_ID,
+    adAccountId: process.env.META_AD_ACCOUNT_ID,
+    override: SESSION_OVERRIDE,
+  } });
 });
 
 app.get("/api/meta/fb/posts", async (req, res) => {
@@ -1599,14 +1680,14 @@ app.post("/api/customers/segment-push", async (req, res) => {
     }
     const success = results.filter(r => r.ok).length;
     appendAction({ type: "segment-push", segment, total: group.length, success, preview: (text || "").slice(0, 60) });
-    res.json({ ok: true, segment, total: group.length, success, failed: group.length - success, results });
+    res.json({ ok: true, segment, total: group.length, success: group.length - success, results });
   } catch (err) {
     res.status(500).json({ error: String(err.message || err) });
   }
 });
 
 // POST /api/line/generate-broadcast  body: {brief, count}
-// 讓 NOVA 寫 N 個廣播草稿
+// 讓 NOVA 寫 N 個廣播越稿。
 app.post("/api/line/generate-broadcast", async (req, res) => {
   const { brief, count = 3 } = req.body || {};
   if (!brief || brief.trim().length < 5) return res.status(400).json({ error: "brief too short" });
@@ -1618,7 +1699,7 @@ app.post("/api/line/generate-broadcast", async (req, res) => {
 Brief：${brief}
 
 要求：
-- LINE 廣播會發給全部好友，語氣親近但保持精品感
+- LINE 廣播會發畣全部好友，語氣親近但保持精品感
 - 每則 120-200 字
 - 可加 emoji 但節制（1-3 個）
 - 回 JSON 陣列：[{"style":"...","text":"..."}, ...]
