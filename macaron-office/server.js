@@ -1342,6 +1342,40 @@ async function handleLineEvent(event) {
     return;
   }
 
+  // 偵測 admin 決策回覆「1ok / 1no / 1?」
+  const decisionMatch = text.trim().match(/^([1-3])\s*(ok|no|\?)$/i);
+  if (decisionMatch && userId) {
+    const adminData = alerts.loadAdmin(DATA_DIR);
+    if (adminData.lineUserId === userId) {
+      const decisionNum = decisionMatch[1];
+      const action = decisionMatch[2].toLowerCase();
+      const actionLabel = action === "ok" ? "✅ 同意" : action === "no" ? "❌ 拒絕" : "🤔 要討論";
+      try {
+        const actionsFile = path.join(DATA_DIR, "actions.json");
+        const arr = JSON.parse(fs.readFileSync(actionsFile, "utf8"));
+        arr.push({
+          id: Date.now(),
+          type: "admin-decision",
+          decisionNum,
+          action,
+          actionLabel,
+          createdAt: new Date().toISOString(),
+        });
+        fs.writeFileSync(actionsFile, JSON.stringify(arr.slice(-200), null, 2), "utf8");
+      } catch (e) { console.error("[admin-decision log]", e); }
+      let replyText;
+      if (action === "ok") {
+        replyText = `${actionLabel} 決策 ${decisionNum}\n\n已記錄。VICTOR 會在下一份簡報納入這個答案，相關的執行（廣告調整、文案發佈、客人回覆）請到 https://beauty-office.onrender.com 找對應員工完成。`;
+      } else if (action === "no") {
+        replyText = `${actionLabel} 決策 ${decisionNum}\n\n已記錄為拒絕。VICTOR 明天會用新角度想對策。`;
+      } else {
+        replyText = `${actionLabel} 決策 ${decisionNum}\n\n打開 https://beauty-office.onrender.com 找 VICTOR 開始討論`;
+      }
+      try { await line.replyMessage(replyToken, [{ type: "text", text: replyText }]); } catch (e) {}
+      return;
+    }
+  }
+
   // 用 Claude 分類意圖 + 寫草稿
   let classification = null;
   let draft = null;
