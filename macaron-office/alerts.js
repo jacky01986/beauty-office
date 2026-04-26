@@ -18,8 +18,18 @@ function adminPath(dataDir) {
 }
 
 function loadAdmin(dataDir) {
+  // Env var 優先（永久化，不受 Render 重新部署影響）
+  if (process.env.ADMIN_LINE_USER_ID) {
+    return {
+      lineUserId: process.env.ADMIN_LINE_USER_ID,
+      userName: process.env.ADMIN_LINE_USER_NAME || null,
+      registeredAt: "env-var",
+      source: "env",
+    };
+  }
   try {
-    return JSON.parse(fs.readFileSync(adminPath(dataDir), "utf8"));
+    const data = JSON.parse(fs.readFileSync(adminPath(dataDir), "utf8"));
+    return { ...data, source: "file" };
   } catch (e) {
     return { lineUserId: null, registeredAt: null };
   }
@@ -217,39 +227,7 @@ async function eventMonitor({ anthropic, model, employees, meta, customers, data
     /* skip */
   }
 
-  // Check 2: LINE 客人訊息 > 60 分鐘沒回（上班時間 09-21）
-  try {
-    const lineMessagesPath = path.join(dataDir, "line-messages.json");
-    if (fs.existsSync(lineMessagesPath)) {
-      const arr = JSON.parse(fs.readFileSync(lineMessagesPath, "utf8"));
-      const now = Date.now();
-      const stale = arr.filter(
-        (m) => !m.replied && now - new Date(m.timestamp).getTime() > 60 * 60 * 1000
-      );
-      // 只在台灣 09:00-21:00 推
-      const taipeiHour = Number(
-        new Date().toLocaleString("en-US", { timeZone: "Asia/Taipei", hour: "numeric", hour12: false })
-      );
-      if (stale.length > 0 && taipeiHour >= 9 && taipeiHour < 21) {
-        const detail = stale
-          .slice(0, 3)
-          .map(
-            (m) => `· ${m.userName || "(匿名)"}：「${(m.text || "").slice(0, 40)}…」`
-          )
-          .join("\n");
-        checks.push({
-          type: "line-stale",
-          severity: "medium",
-          title: `💬 ${stale.length} 則 LINE 訊息超過 1 小時沒回`,
-          detail,
-        });
-      }
-    }
-  } catch (e) {
-    /* skip */
-  }
-
-  // Check 3: Meta 帳戶 7 日燒費 > 0 但 conv = 0 → 廣告白燒警告
+  // Check 2: Meta 帳戶 7 日燒費 > 0 但 conv = 0 → 廣告白燒警告
   try {
     const insights = await meta.getAdsInsights({ datePreset: "last_7d" });
     const totalSpend = Number(insights?.spend || 0);
