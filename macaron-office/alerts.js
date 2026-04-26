@@ -1,9 +1,11 @@
 // ============================================================
-// ofz beauty academy · 主動推播模組 (alerts)
+// ofz beauty academy · 主動推播模組 (alerts) v3
 // ------------------------------------------------------------
 // 功能：
 // 1. dailyBriefing()  — 每日 09:00 由 VICTOR 統合產出今日簡報
-// 2. eventMonitor()   — 每 30 分鐘檢查 ROAS / LINE 積壓 / 燒預算
+//                       依星期幾智慧切換：一(戰略) / 三(中週) / 日(回顧)
+//                       每天都加「等你拍板」決策清單
+// 2. eventMonitor()   — 每 30 分鐘檢查 ROAS / 燒預算
 // 3. pushToAdmin()    — 把訊息推到 admin 的 LINE
 // 4. registerAdminFromLine() — admin 在 LINE 對 Bot 傳 "/admin" 註冊
 // ============================================================
@@ -71,14 +73,10 @@ async function pushToAdmin({ line, dataDir, text }) {
   }
 }
 
-// ────────────────────────────────────────────────────────────
-// 每日早安簡報：VICTOR 統合產出
-// ────────────────────────────────────────────────────────────
 async function dailyBriefing({ anthropic, model, employees, meta, customers, dataDir, line }) {
   const victor = employees.victor;
   if (!anthropic || !victor) return { ok: false, reason: "not configured" };
 
-  // 1. 收集資料快照
   const snapshot = { timestamp: new Date().toISOString() };
 
   try {
@@ -128,14 +126,47 @@ async function dailyBriefing({ anthropic, model, employees, meta, customers, dat
     snapshot.customerSegments = { error: e.message };
   }
 
-  // 2. 餵給 VICTOR 產簡報
-  const today = new Date().toLocaleDateString("zh-TW", { timeZone: "Asia/Taipei" });
-  const weekday = ["日", "一", "二", "三", "四", "五", "六"][
-    new Date().toLocaleString("en-US", { timeZone: "Asia/Taipei", weekday: "long" }) ===
-    new Date().toLocaleString("en-US", { weekday: "long" })
-      ? new Date().getDay()
-      : new Date().getDay()
-  ];
+  const taipeiNow = new Date(new Date().toLocaleString("en-US", { timeZone: "Asia/Taipei" }));
+  const today = taipeiNow.toLocaleDateString("zh-TW");
+  const dayNum = taipeiNow.getDay();
+  const weekday = ["日", "一", "二", "三", "四", "五", "六"][dayNum];
+
+  let specialBlock = "";
+  if (dayNum === 1) {
+    specialBlock = `
+
+🎯 本週戰略（週一獨有，要花腦力想清楚）
+本週主題：（一句話定調，例：「攻馬國線上課招生」）
+3 大目標：
+1. （含具體 KPI 數字）
+2. ...
+3. ...
+員工分工：
+· LEON：本週負責...
+· SOFIA：本週負責...
+· DEX：本週負責...
+· （其他員工）...
+
+⚠️ Jeffrey 本週只需要決定 2-3 件大事（後面決策清單會列）`;
+  } else if (dayNum === 3) {
+    specialBlock = `
+
+🔄 中週調整（週三獨有）
+週一目標完成度：1️⃣ X% 2️⃣ X% 3️⃣ X%
+偏離預期的：（哪一項落後、為什麼、要不要調整方向）
+後半週要修什麼：（具體動作）`;
+  } else if (dayNum === 0) {
+    specialBlock = `
+
+📚 本週學習（週日獨有）
+本週 work：（哪些動作奏效、為什麼）
+本週 fail：（哪些 fail、學到什麼）
+數字總結：本週招生 N 人、廣告燒 NT$X、ROAS Y
+
+🔮 下週預告
+下週主題：（預告，但別太死，週一會重新確認）
+要 Jeffrey 週日晚上想清楚的：（1-2 件）`;
+  }
 
   const userPrompt = `現在是台灣早上 09:00，請以 ofz beauty academy 行銷總監身分，產出推到 Jeffrey LINE 的「今日早安簡報」。
 
@@ -143,20 +174,37 @@ async function dailyBriefing({ anthropic, model, employees, meta, customers, dat
 ${JSON.stringify(snapshot, null, 2).slice(0, 4500)}
 
 【輸出規範（嚴格遵守）】
-- 純文字格式（不要 HTML、不要 Markdown），LINE 訊息要短而精，不超過 800 字
+- 純文字格式（不要 HTML、不要 Markdown）
+- LINE 訊息上限 1500 字
 - 結構固定如下：
 
 📊 ofz · 早安簡報 · ${today} (${weekday})
+${specialBlock}
 
 🎯 今日重點
 （2-3 句濃縮昨日成效，分課程 vs 療程、🇹🇼 vs 🇲🇾）
 
-🚨 今天優先處理（最多 3 件）
-1. [LEON/SOFIA/DEX/誰] 動詞開頭的具體建議（為何要做、預估多久、誰負責）
+🚨 今天 3 件員工任務（已分配，員工自己會做）
+1. [LEON/SOFIA/DEX/誰] 動詞開頭的具體任務（誰、做什麼、deadline）
 2. ...
 3. ...
 
-📈 廣告紅綠燈（不要太囉唆）
+🤔 等你拍板（最多 3 件，每件都要附 AI 推薦 + 理由）
+1. 【決策題目】：（一句話講清楚要決定什麼）
+   背景：（1-2 句脈絡）
+   👉 [員工名] 推薦：[具體答案]
+   理由：（為何這個答案，1-2 句）
+   📲 你回「1ok」同意 / 「1no」拒絕 / 「1?」要討論
+
+2. 【決策題目】：...
+   ...
+   📲 回「2ok / 2no / 2?」
+
+3. 【決策題目】：...
+   ...
+   📲 回「3ok / 3no / 3?」
+
+📈 廣告紅綠燈
 🔴 紅燈 N 個：（簡述）
 🟡 黃燈 N 個：（簡述）
 🟢 綠燈 N 個：（放著跑）
@@ -165,8 +213,11 @@ ${JSON.stringify(snapshot, null, 2).slice(0, 4500)}
 
 【鐵則】
 - 不要寫「請問需要更多資訊嗎」這種廢話
-- 三件待辦中，至少一件是「Jeffrey 必須親自做的決策」（其他可委派員工）
-- 沒有資料的欄位寫 "（資料缺，待設定）"，不要硬掰`;
+- 「等你拍板」3 件必須是真正需要 Jeffrey 決定的事（不是員工自己能搞定的小事）
+- 每件決策的「推薦答案」要明確（不要「看情況」、「再觀察」這種模糊回答）
+- 推薦答案的「理由」要基於數據（廣告 ROAS、客人留言、課程銷量），不要憑感覺
+- 沒有資料的欄位寫 "（資料缺，待設定）"，不要硬掰
+- 如果今天真的沒有需要 Jeffrey 拍板的事，「等你拍板」就寫「✨ 今天沒大事，員工自己會處理」`;
 
   let text;
   try {
@@ -187,18 +238,13 @@ ${JSON.stringify(snapshot, null, 2).slice(0, 4500)}
 
   if (!text) return { ok: false, reason: "empty briefing" };
 
-  // 3. 推到 admin
   const pushed = await pushToAdmin({ line, dataDir, text });
   return { ok: true, text, pushed, snapshotKeys: Object.keys(snapshot) };
 }
 
-// ────────────────────────────────────────────────────────────
-// 事件即時監控：ROAS / LINE 積壓 / 燒預算
-// ────────────────────────────────────────────────────────────
 async function eventMonitor({ anthropic, model, employees, meta, customers, dataDir, line }) {
   const checks = [];
 
-  // Check 1: Meta 廣告 ROAS < 1.0 且燒費 > NTD 1000 = 紅燈
   try {
     const ads = await meta.getAdsWithInsights({ datePreset: "last_7d", limit: 50 });
     const lowRoasAds = ads.filter((a) => {
@@ -223,11 +269,8 @@ async function eventMonitor({ anthropic, model, employees, meta, customers, data
         detail,
       });
     }
-  } catch (e) {
-    /* skip */
-  }
+  } catch (e) {}
 
-  // Check 2: Meta 帳戶 7 日燒費 > 0 但 conv = 0 → 廣告白燒警告
   try {
     const insights = await meta.getAdsInsights({ datePreset: "last_7d" });
     const totalSpend = Number(insights?.spend || 0);
@@ -240,9 +283,7 @@ async function eventMonitor({ anthropic, model, employees, meta, customers, data
         detail: "可能是追蹤碼壞了 / 受眾錯了 / 落地頁壞了，請馬上處理",
       });
     }
-  } catch (e) {
-    /* skip */
-  }
+  } catch (e) {}
 
   if (checks.length === 0) return { ok: true, alerts: [], pushed: null };
 
