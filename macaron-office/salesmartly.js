@@ -8,7 +8,7 @@ const path = require('path');
 
 const TOKEN = process.env.SALESMARTLY_TOKEN || '';
 const PROJECT_ID = process.env.SALESMARTLY_PROJECT_ID || '';
-const BASE_URL = process.env.SALESMARTLY_BASE_URL || 'https://api.salesmartly.com';
+const BASE_URL = process.env.SALESMARTLY_BASE_URL || 'https://developer.salesmartly.com';
 const CACHE_DIR = path.join(__dirname, 'data');
 const CACHE_FILE = path.join(CACHE_DIR, 'salesmartly_conversations.json');
 
@@ -42,10 +42,19 @@ async function apiCall(endpoint, params = {}, method = 'POST') {
   return json;
 }
 
-const CONV_ENDPOINTS = ['/api/v2/get-session-list'];
-const MSG_ENDPOINTS = ['/api/v2/get-message-list'];
+const CONV_ENDPOINTS = [
+  '/v2/chat/list', '/v2/chats/list', '/v2/conversations/list',
+  '/openapi/v2/chat/list', '/openapi/v2/conversation/list',
+  '/v1/conversations', '/v1/conversation/list', '/openapi/conversation/list',
+  '/api/v2/chats', '/api/conversations',
+];
+const MSG_ENDPOINTS = [
+  '/v2/message/list', '/v2/messages/list',
+  '/openapi/v2/message/list',
+  '/v1/messages', '/v1/message/list', '/openapi/message/list',
+];
 
-async function tryEndpoints(endpoints, params, methods = ['GET', 'POST']) {
+async function tryEndpoints(endpoints, params, methods = ['POST', 'GET']) {
   const attempts = [];
   for (const ep of endpoints) {
     for (const method of methods) {
