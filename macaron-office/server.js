@@ -24,6 +24,7 @@ const alerts = require("./alerts");
 const metaOverride = require("./meta-override");
 metaOverride.applyOnStartup();
 const autoPublish = require("./auto-publish");
+const salesmartly = require("./salesmartly");
 const toolDefs = require("./tools");
 
 // In-memory proposal storage (保留在記憶體就好，重啟失效 OK)
@@ -230,6 +231,13 @@ app.get("/api/meta/status", async (req, res) => {
 });
 
 // /api/meta/assets — 列出 user 所有 FB Pages / IG Business / Ad Accounts（for switcher）
+app.get("/api/salesmartly/debug", async (req, res) => {
+  try {
+    const r = await salesmartly.probeAll();
+    res.json(r);
+  } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
 app.get("/api/meta/assets", async (req, res) => {
     try {
       const result = await metaOverride.listAssets();
