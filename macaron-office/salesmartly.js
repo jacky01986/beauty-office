@@ -1,4 +1,4 @@
-// salesmartly.js â SaleSmartly API client + customer insight extractor
+// salesmartly.js Ã¢ÂÂ SaleSmartly API client + customer insight extractor
 // env: SALESMARTLY_TOKEN, SALESMARTLY_PROJECT_ID, SALESMARTLY_BASE_URL (optional)
 // V2 endpoints based on apifox doc category structure
 
@@ -13,14 +13,18 @@ const CACHE_DIR = path.join(__dirname, 'data');
 const CACHE_FILE = path.join(CACHE_DIR, 'salesmartly_conversations.json');
 
 function signParams(params = {}) {
-  const keys = Object.keys(params).sort();
-  const concat = keys.map(k => {
-    const v = params[k];
-    if (v == null) return '';
-    if (typeof v === 'object') return JSON.stringify(v);
-    return String(v);
-  }).join('');
-  return crypto.createHash('md5').update(concat + TOKEN, 'utf8').digest('hex');
+  // SaleSmartly signature: Token + '&' + sorted "key=value" pairs joined with '&', then MD5 (32 lowercase hex)
+  // project_id MUST be included in signing params
+  const allParams = Object.assign({}, params, { project_id: PROJECT_ID });
+  const keys = Object.keys(allParams).sort();
+  const pairs = keys.map(k => {
+    const v = allParams[k];
+    if (v === null || v === undefined) return k + '=';
+    if (typeof v === 'object') return k + '=' + JSON.stringify(v);
+    return k + '=' + String(v);
+  });
+  const concat = TOKEN + '&' + pairs.join('&');
+  return crypto.createHash('md5').update(concat, 'utf8').digest('hex');
 }
 
 async function apiCall(endpoint, params = {}, method = 'POST') {
@@ -83,14 +87,14 @@ async function listMessages(chat_user_id, { page = 1, page_size = 50 } = {}) {
 }
 
 const BUCKETS = {
-  'price': { rx: /å¹é¢|å­¸è²»|å¤å°é¢|è²»ç¨|å ±å¹|å¹æ ¼/, label: 'å¹æ ¼ / å­¸è²»' },
-  'content': { rx: /èª²ç¨|æä»éº¼|å§å®¹|å¤§ç¶±|å­¸ä»éº¼/, label: 'èª²ç¨å§å®¹' },
-  'time': { rx: /æé|ä»éº¼æå|éèª²|ä½æ/, label: 'ä¸èª²æé' },
-  'pay': { rx: /æéº¼å ±å|ä»æ¬¾|å¯æ¬¾|å·å¡|åæ/, label: 'å ±å / ä»æ¬¾' },
-  'cert': { rx: /è­ç§|è­æ¸|å·ç§|çµæ¥­/, label: 'è­ç§ / çµæ¥­' },
-  'refund': { rx: /éè²»|åæ¶|éæ¬¾/, label: 'éè²» / åæ¶' },
-  'teacher': { rx: /èå¸«|å¸«è³|èª°æ/, label: 'å¸«è³ / èå¸«' },
-  'place': { rx: /å°é»|æå®¤|å°å|åªè£¡/, label: 'å°é» / æå®¤' },
+  'price': { rx: /Ã¥ÂÂ¹Ã©ÂÂ¢|Ã¥Â­Â¸Ã¨Â²Â»|Ã¥Â¤ÂÃ¥Â°ÂÃ©ÂÂ¢|Ã¨Â²Â»Ã§ÂÂ¨|Ã¥Â Â±Ã¥ÂÂ¹|Ã¥ÂÂ¹Ã¦Â Â¼/, label: 'Ã¥ÂÂ¹Ã¦Â Â¼ / Ã¥Â­Â¸Ã¨Â²Â»' },
+  'content': { rx: /Ã¨ÂªÂ²Ã§Â¨Â|Ã¦ÂÂÃ¤Â»ÂÃ©ÂºÂ¼|Ã¥ÂÂ§Ã¥Â®Â¹|Ã¥Â¤Â§Ã§Â¶Â±|Ã¥Â­Â¸Ã¤Â»ÂÃ©ÂºÂ¼/, label: 'Ã¨ÂªÂ²Ã§Â¨ÂÃ¥ÂÂ§Ã¥Â®Â¹' },
+  'time': { rx: /Ã¦ÂÂÃ©ÂÂ|Ã¤Â»ÂÃ©ÂºÂ¼Ã¦ÂÂÃ¥ÂÂ|Ã©ÂÂÃ¨ÂªÂ²|Ã¤Â½ÂÃ¦ÂÂ/, label: 'Ã¤Â¸ÂÃ¨ÂªÂ²Ã¦ÂÂÃ©ÂÂ' },
+  'pay': { rx: /Ã¦ÂÂÃ©ÂºÂ¼Ã¥Â Â±Ã¥ÂÂ|Ã¤Â»ÂÃ¦Â¬Â¾|Ã¥ÂÂ¯Ã¦Â¬Â¾|Ã¥ÂÂ·Ã¥ÂÂ¡|Ã¥ÂÂÃ¦ÂÂ/, label: 'Ã¥Â Â±Ã¥ÂÂ / Ã¤Â»ÂÃ¦Â¬Â¾' },
+  'cert': { rx: /Ã¨Â­ÂÃ§ÂÂ§|Ã¨Â­ÂÃ¦ÂÂ¸|Ã¥ÂÂ·Ã§ÂÂ§|Ã§ÂµÂÃ¦Â¥Â­/, label: 'Ã¨Â­ÂÃ§ÂÂ§ / Ã§ÂµÂÃ¦Â¥Â­' },
+  'refund': { rx: /Ã©ÂÂÃ¨Â²Â»|Ã¥ÂÂÃ¦Â¶Â|Ã©ÂÂÃ¦Â¬Â¾/, label: 'Ã©ÂÂÃ¨Â²Â» / Ã¥ÂÂÃ¦Â¶Â' },
+  'teacher': { rx: /Ã¨ÂÂÃ¥Â¸Â«|Ã¥Â¸Â«Ã¨Â³Â|Ã¨ÂªÂ°Ã¦ÂÂ/, label: 'Ã¥Â¸Â«Ã¨Â³Â / Ã¨ÂÂÃ¥Â¸Â«' },
+  'place': { rx: /Ã¥ÂÂ°Ã©Â»Â|Ã¦ÂÂÃ¥Â®Â¤|Ã¥ÂÂ°Ã¥ÂÂ|Ã¥ÂÂªÃ¨Â£Â¡/, label: 'Ã¥ÂÂ°Ã©Â»Â / Ã¦ÂÂÃ¥Â®Â¤' },
 };
 
 function extractTopQuestions(messages) {
@@ -143,12 +147,12 @@ async function getCustomerInsights({ days = 7 } = {}) {
 }
 
 function formatBriefingSection(topics, convCount, msgCount, days) {
-  if (!topics || topics.length === 0) return 'å®¢æï¼éå» ' + days + ' å¤©ï¼ï¼ç¡å°è©±è³æ';
-  const lines = ['ð æ¬é±å®¢ææ´å¯ï¼éå» ' + days + ' å¤©ï¼' + convCount + ' å ´å°è©± / ' + msgCount + ' åå®¢äººè¨æ¯ï¼'];
-  topics.slice(0, 5).forEach((t, i) => { lines.push((i+1) + '. ' + t.topic + 'ï¼' + t.count + ' æ¬¡'); });
+  if (!topics || topics.length === 0) return 'Ã¥Â®Â¢Ã¦ÂÂÃ¯Â¼ÂÃ©ÂÂÃ¥ÂÂ» ' + days + ' Ã¥Â¤Â©Ã¯Â¼ÂÃ¯Â¼ÂÃ§ÂÂ¡Ã¥Â°ÂÃ¨Â©Â±Ã¨Â³ÂÃ¦ÂÂ';
+  const lines = ['Ã°ÂÂÂ Ã¦ÂÂ¬Ã©ÂÂ±Ã¥Â®Â¢Ã¦ÂÂÃ¦Â´ÂÃ¥Â¯ÂÃ¯Â¼ÂÃ©ÂÂÃ¥ÂÂ» ' + days + ' Ã¥Â¤Â©Ã¯Â¼Â' + convCount + ' Ã¥Â Â´Ã¥Â°ÂÃ¨Â©Â± / ' + msgCount + ' Ã¥ÂÂÃ¥Â®Â¢Ã¤ÂºÂºÃ¨Â¨ÂÃ¦ÂÂ¯Ã¯Â¼Â'];
+  topics.slice(0, 5).forEach((t, i) => { lines.push((i+1) + '. ' + t.topic + 'Ã¯Â¼Â' + t.count + ' Ã¦Â¬Â¡'); });
   if (topics[0] && topics[0].count >= 5) {
     lines.push('');
-    lines.push('ð¡ å»ºè­°ï¼ã' + topics[0].topic + 'ãéé±è¢«å ' + topics[0].count + ' æ¬¡ â CAMILLE å¯«ä¸ç¯ FAQ');
+    lines.push('Ã°ÂÂÂ¡ Ã¥Â»ÂºÃ¨Â­Â°Ã¯Â¼ÂÃ£ÂÂ' + topics[0].topic + 'Ã£ÂÂÃ©ÂÂÃ©ÂÂ±Ã¨Â¢Â«Ã¥ÂÂ ' + topics[0].count + ' Ã¦Â¬Â¡ Ã¢ÂÂ CAMILLE Ã¥Â¯Â«Ã¤Â¸ÂÃ§Â¯Â FAQ');
   }
   return lines.join('\n');
 }
