@@ -237,46 +237,6 @@ app.get("/api/meta/assets", async (req, res) => {
       res.status(500).json({ error: e.message });
     }
   });
-    const token = process.env.META_ACCESS_TOKEN;
-    const GRAPH = "https://graph.facebook.com/v21.0";
-    // Pages (with linked IG)
-    const pagesResp = await fetch(`${GRAPH}/me/accounts?fields=id,name,username,category,access_token,instagram_business_account{id,username,name,profile_picture_url}&limit=50&access_token=${encodeURIComponent(token)}`);
-    const pagesJson = await pagesResp.json();
-    // Ad accounts
-    const adsResp = await fetch(`${GRAPH}/me/adaccounts?fields=id,account_id,name,currency,business_name,account_status&limit=50&access_token=${encodeURIComponent(token)}`);
-    const adsJson = await adsResp.json();
-    const pages = (pagesJson.data || []).map(p => ({
-      id: p.id,
-      name: p.name,
-      username: p.username,
-      category: p.category,
-      hasToken: !!p.access_token,
-      instagram: p.instagram_business_account ? {
-        id: p.instagram_business_account.id,
-        username: p.instagram_business_account.username,
-        name: p.instagram_business_account.name,
-        avatar: p.instagram_business_account.profile_picture_url,
-      } : null,
-    }));
-    const adAccounts = (adsJson.data || []).map(a => ({
-      id: a.id,                // act_xxxxx
-      accountId: a.account_id, // just the number
-      name: a.name,
-      currency: a.currency,
-      businessName: a.business_name,
-      status: a.account_status,
-    }));
-    const current = {
-      pageId: process.env.META_FB_PAGE_ID || null,
-      igId: process.env.META_IG_USER_ID || null,
-      adAccountId: process.env.META_AD_ACCOUNT_ID || null,
-      override: SESSION_OVERRIDE,
-    };
-    res.json({ pages, adAccounts, current });
-  } catch (err) {
-    res.status(500).json({ error: String(err.message || err) });
-  }
-});
 
 // /api/meta/switch — 切換目前使用中的粉絲頁/IG/廣告帳戶（session-level override）
 let SESSION_OVERRIDE = { pageId: null, igId: null, adAccountId: null };
