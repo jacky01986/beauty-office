@@ -23,6 +23,7 @@ const customers = require("./customers");
 const alerts = require("./alerts");
 const metaOverride = require("./meta-override");
 metaOverride.applyOnStartup();
+const autoPublish = require("./auto-publish");
 const toolDefs = require("./tools");
 
 // In-memory proposal storage (保留在記憶體就好，重啟失效 OK)
@@ -1214,6 +1215,7 @@ async function runScheduledTask(empId, prompt, label) {
   }
 }
 
+autoPublish.registerCronJobs(cron);
 cron.schedule("0 9 * * 1", () => {
   runScheduledTask("victor",
     "請產出本週的《團隊週策略簡報》：本週主軸、各專員的重點任務、預算分配、風險預警、3 個需要 Jeffrey 決策的問題。",
