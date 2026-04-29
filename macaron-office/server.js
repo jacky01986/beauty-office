@@ -1,11 +1,11 @@
 // ============================================================
-// ofz beauty academy · Virtual Office Server v2
+// ofz beauty academy Â· Virtual Office Server v2
 // ------------------------------------------------------------
-// 1. /api/employees           — 員工清單
-// 2. /api/chat                — 一般單一員工 SSE 對話
-// 3. /api/orchestrate         — 行銷總監模式：拆解 → 平行 → 統整
-// 4. /api/reports             — 排程報告紀錄
-// 5. node-cron 自動排程
+// 1. /api/employees           â å¡å·¥æ¸å®
+// 2. /api/chat                â ä¸è¬å®ä¸å¡å·¥ SSE å°è©±
+// 3. /api/orchestrate         â è¡é·ç¸½ç£æ¨¡å¼ï¼æè§£ â å¹³è¡ â çµ±æ´
+// 4. /api/reports             â æç¨å ±åç´é
+// 5. node-cron èªåæç¨
 // ============================================================
 
 require("dotenv").config();
@@ -25,9 +25,10 @@ const metaOverride = require("./meta-override");
 metaOverride.applyOnStartup();
 const autoPublish = require("./auto-publish");
 const salesmartly = require("./salesmartly");
+const metaCapi = require("./meta-capi");
 const toolDefs = require("./tools");
 
-// In-memory proposal storage (保留在記憶體就好，重啟失效 OK)
+// In-memory proposal storage (ä¿çå¨è¨æ¶é«å°±å¥½ï¼éåå¤±æ OK)
 const PROPOSALS = new Map();
 setInterval(() => { const now = Date.now(); for (const [k, v] of PROPOSALS) if (now - v.createdAt > 30 * 60 * 1000) PROPOSALS.delete(k); }, 5 * 60 * 1000);
 const multer = require("multer");
@@ -38,19 +39,19 @@ const META_AWARE_EMPLOYEES = new Set(["victor", "leon", "camille", "aria", "dex"
 const FORMAT_ENFORCEMENT = `
 
 ---
-【★ 輸出格式鐵則 (每一輪都必須遵守，包含第 2、3、4… 輪) ★】
-每次回覆都必須用 HTML 片段（不要純文字）：
-<h4>標題</h4>
-<p>段落</p>
-<ul><li>條列</li></ul>
-<div class="tldr">⚡ TL;DR｜重點結論</div>
-<table class="data"><thead><tr><th>項目</th><th>數字</th></tr></thead><tbody><tr><td>…</td><td>…</td></tr></tbody></table>
-<strong>粗體</strong>、<em>斜體</em>、<code>代碼</code>、<blockquote>引述</blockquote>
+ãâ è¼¸åºæ ¼å¼éµå (æ¯ä¸è¼ªé½å¿é éµå®ï¼åå«ç¬¬ 2ã3ã4â¦ è¼ª) âã
+æ¯æ¬¡åè¦é½å¿é ç¨ HTML çæ®µï¼ä¸è¦ç´æå­ï¼ï¼
+<h4>æ¨é¡</h4>
+<p>æ®µè½</p>
+<ul><li>æ¢å</li></ul>
+<div class="tldr">â¡ TL;DRï½éé»çµè«</div>
+<table class="data"><thead><tr><th>é ç®</th><th>æ¸å­</th></tr></thead><tbody><tr><td>â¦</td><td>â¦</td></tr></tbody></table>
+<strong>ç²é«</strong>ã<em>æé«</em>ã<code>ä»£ç¢¼</code>ã<blockquote>å¼è¿°</blockquote>
 
-禁止：純文字段落、Markdown (## / **), 只輸出 text 沒有 tags。
-每次都要用 <div class="tldr"> 開頭總結，這個習慣不可省略。
+ç¦æ­¢ï¼ç´æå­æ®µè½ãMarkdown (## / **), åªè¼¸åº text æ²æ tagsã
+æ¯æ¬¡é½è¦ç¨ <div class="tldr"> éé ­ç¸½çµï¼éåç¿æ£ä¸å¯çç¥ã
 
-如果對話進入第 2、3 輪以上，仍須保持上述 HTML 結構，不要因為是「繼續對話」就簡化。`;
+å¦æå°è©±é²å¥ç¬¬ 2ã3 è¼ªä»¥ä¸ï¼ä»é ä¿æä¸è¿° HTML çµæ§ï¼ä¸è¦å çºæ¯ãç¹¼çºå°è©±ãå°±ç°¡åã`;
 
 async function maybeAugmentSystemPrompt(emp) {
   let baseSystem = emp.systemPrompt + FORMAT_ENFORCEMENT;
@@ -61,13 +62,13 @@ async function maybeAugmentSystemPrompt(emp) {
     if (!metaBlock && !googleBlock) return baseSystem;
     let extra = "";
     if (metaBlock) {
-      extra += "\n\n---\n[📡 COACHING DATA · Meta 即時數據快照]\n" +
-        "以下是從 Meta Graph API 即時抓取的真實數據，請在教練建議與分析時優先引用這些數字：\n\n" +
-        metaBlock + "\n\n(資料來源：Meta Graph API)";
+      extra += "\n\n---\n[ð¡ COACHING DATA Â· Meta å³ææ¸æå¿«ç§]\n" +
+        "ä»¥ä¸æ¯å¾ Meta Graph API å³ææåççå¯¦æ¸æï¼è«å¨æç·´å»ºè­°èåææåªåå¼ç¨éäºæ¸å­ï¼\n\n" +
+        metaBlock + "\n\n(è³æä¾æºï¼Meta Graph API)";
     }
     if (googleBlock) {
-      extra += "\n\n---\n[📊 COACHING DATA · Google Ads 即時數據快照]\n" +
-        googleBlock + "\n\n(資料來源：Google Ads API)";
+      extra += "\n\n---\n[ð COACHING DATA Â· Google Ads å³ææ¸æå¿«ç§]\n" +
+        googleBlock + "\n\n(è³æä¾æºï¼Google Ads API)";
     }
     return baseSystem + extra;
   } catch (e) {
@@ -109,8 +110,8 @@ const lineUpload = multer({
 app.use(cors());
 
 // ============================================================
-// /api/line/webhook — LINE 訊息接收端（要 raw body 驗 signature）
-// 必須放在 express.json() middleware 之前
+// /api/line/webhook â LINE è¨æ¯æ¥æ¶ç«¯ï¼è¦ raw body é© signatureï¼
+// å¿é æ¾å¨ express.json() middleware ä¹å
 // ============================================================
 app.post('/api/line/webhook',
   express.raw({ type: 'application/json' }),
@@ -121,7 +122,7 @@ app.post('/api/line/webhook',
       console.warn('[LINE webhook] signature mismatch');
       return res.status(401).send('invalid signature');
     }
-    // 先回 200 讓 LINE 不要重試
+    // åå 200 è® LINE ä¸è¦éè©¦
     res.status(200).send('ok');
     let payload;
     try { payload = JSON.parse(rawBody); } catch (e) { return; }
@@ -134,18 +135,18 @@ app.post('/api/line/webhook',
 app.use(express.json({ limit: "1mb" }));
 
 // ============================================================
-// GET / — 注入全站導覽列到 index.html
+// GET / â æ³¨å¥å¨ç«å°è¦½åå° index.html
 // ============================================================
 app.get('/', (req, res, next) => {
   const indexPath = path.join(__dirname, 'public', 'index.html');
   fs.readFile(indexPath, 'utf8', (err, html) => {
     if (err) return next();
     const navHtml = `<div id="__app_nav" style="position:fixed;top:14px;right:14px;z-index:9999;display:flex;gap:8px;background:rgba(253,247,238,0.98);padding:8px 10px;border-radius:10px;border:1px solid #8E3D4B;box-shadow:0 6px 20px rgba(142,61,75,0.22);font-family:-apple-system,'PingFang TC',sans-serif;">
-      <a href="/optimize.html" style="color:#A37849;text-decoration:none;padding:6px 12px;background:rgba(163,120,73,0.14);border-radius:6px;font-size:12px;letter-spacing:1px;border:1px solid rgba(163,120,73,0.55);">⚡ 廣告體檢</a>
-      <a href="/competitor.html" style="color:#A37849;text-decoration:none;padding:6px 12px;background:rgba(163,120,73,0.14);border-radius:6px;font-size:12px;letter-spacing:1px;border:1px solid rgba(163,120,73,0.55);">📡 競品追蹤</a>
-      <a href="/social.html" style="color:#A37849;text-decoration:none;padding:6px 12px;background:rgba(163,120,73,0.14);border-radius:6px;font-size:12px;letter-spacing:1px;border:1px solid rgba(163,120,73,0.55);">📱 FB/IG</a>
-      <a href="/customers.html" style="color:#ff9f68;text-decoration:none;padding:6px 12px;background:rgba(255,159,104,0.08);border-radius:6px;font-size:12px;letter-spacing:1px;border:1px solid rgba(255,159,104,0.3);">👥 客人畫像</a>
-      <a href="/line.html" style="color:#06C755;text-decoration:none;padding:6px 12px;background:rgba(6,199,85,0.08);border-radius:6px;font-size:12px;letter-spacing:1px;border:1px solid rgba(6,199,85,0.3);">💬 LINE</a>
+      <a href="/optimize.html" style="color:#A37849;text-decoration:none;padding:6px 12px;background:rgba(163,120,73,0.14);border-radius:6px;font-size:12px;letter-spacing:1px;border:1px solid rgba(163,120,73,0.55);">â¡ å»£åé«æª¢</a>
+      <a href="/competitor.html" style="color:#A37849;text-decoration:none;padding:6px 12px;background:rgba(163,120,73,0.14);border-radius:6px;font-size:12px;letter-spacing:1px;border:1px solid rgba(163,120,73,0.55);">ð¡ ç«¶åè¿½è¹¤</a>
+      <a href="/social.html" style="color:#A37849;text-decoration:none;padding:6px 12px;background:rgba(163,120,73,0.14);border-radius:6px;font-size:12px;letter-spacing:1px;border:1px solid rgba(163,120,73,0.55);">ð± FB/IG</a>
+      <a href="/customers.html" style="color:#ff9f68;text-decoration:none;padding:6px 12px;background:rgba(255,159,104,0.08);border-radius:6px;font-size:12px;letter-spacing:1px;border:1px solid rgba(255,159,104,0.3);">ð¥ å®¢äººç«å</a>
+      <a href="/line.html" style="color:#06C755;text-decoration:none;padding:6px 12px;background:rgba(6,199,85,0.08);border-radius:6px;font-size:12px;letter-spacing:1px;border:1px solid rgba(6,199,85,0.3);">ð¬ LINE</a>
     </div>`;
     const injected = html.replace('</body>', navHtml + '</body>');
     res.type('html').send(injected);
@@ -155,10 +156,10 @@ app.get('/', (req, res, next) => {
 
 app.use(express.static(path.join(__dirname, "public")));
 
-// Serve LINE uploaded images publicly (LINE CDN 會抓這個 URL)
+// Serve LINE uploaded images publicly (LINE CDN ææéå URL)
 app.use("/uploads", express.static(LINE_UPLOAD_DIR, { maxAge: "30d" }));
 
-// POST /api/line/upload  上傳圖片檔給 LINE 用（multipart/form-data, field: file）
+// POST /api/line/upload  ä¸å³åçæªçµ¦ LINE ç¨ï¼multipart/form-data, field: fileï¼
 app.post("/api/line/upload", (req, res) => {
   lineUpload.single("file")(req, res, (err) => {
     if (err) return res.status(400).json({ error: String(err.message || err) });
@@ -219,7 +220,7 @@ function setupSSE(res) {
 const sleep = (ms) => new Promise(r => setTimeout(r, ms));
 
 // ============================================================
-// /api/meta/* — Stage 2 read-only Meta integration
+// /api/meta/* â Stage 2 read-only Meta integration
 // ============================================================
 app.get("/api/meta/status", async (req, res) => {
   try {
@@ -230,7 +231,38 @@ app.get("/api/meta/status", async (req, res) => {
   }
 });
 
-// /api/meta/assets — 列出 user 所有 FB Pages / IG Business / Ad Accounts（for switcher）
+// /api/meta/assets â ååº user ææ FB Pages / IG Business / Ad Accountsï¼for switcherï¼
+app.post("/api/salesmartly/webhook", express.json({ limit: "1mb" }), async (req, res) => {
+  try {
+    const evt = req.body || {};
+    // SaleSmartly webhook format: 通常包含 event_type / event / type 等欄位 + 訊息資料
+    // 我們關心的是「客人傳訊息」事件
+    const evtType = evt.event_type || evt.event || evt.type || '';
+    const isInbound = /message|chat|new_message|customer_message/i.test(evtType) ||
+                      evt.direction === 'in' || evt.from_type === 'visitor' || evt.sender_type === 'customer';
+
+    let capiResult = null;
+    if (isInbound) {
+      // Try common field names from SaleSmartly webhook payloads
+      const data = evt.data || evt.message || evt;
+      const contact = evt.contact || data.contact || data.from || {};
+      capiResult = await metaCapi.sendLead({
+        contact_id: contact.id || data.chat_user_id || data.user_id || data.contact_id,
+        name: contact.name || contact.first_name || data.name,
+        email: contact.email,
+        phone: contact.phone,
+        source_channel: data.channel || data.source_channel || 'salesmartly',
+        message_preview: data.content || data.message || data.text,
+      });
+    }
+
+    res.json({ ok: true, processed: !!isInbound, capi: capiResult });
+  } catch (e) {
+    console.error('[salesmartly-webhook]', e.message);
+    res.status(500).json({ error: e.message });
+  }
+});
+
 app.get("/api/salesmartly/debug", async (req, res) => {
   try {
     const r = await salesmartly.probeAll();
@@ -247,7 +279,7 @@ app.get("/api/meta/assets", async (req, res) => {
     }
   });
 
-// /api/meta/switch — 切換目前使用中的粉絲頁/IG/廣告帳戶（session-level override）
+// /api/meta/switch â åæç®åä½¿ç¨ä¸­çç²çµ²é /IG/å»£åå¸³æ¶ï¼session-level overrideï¼
 let SESSION_OVERRIDE = { pageId: null, igId: null, adAccountId: null };
 app.post("/api/meta/switch", express.json(), (req, res) => {
   const { pageId, igId, adAccountId } = req.body || {};
@@ -303,7 +335,7 @@ app.get("/api/meta/ads/campaigns", async (req, res) => {
 });
 
 // ============================================================
-// /api/optimize/* — Phase 1: 廣告半自動優化（提議 → 確認 → 執行）
+// /api/optimize/* â Phase 1: å»£ååèªååªåï¼æè­° â ç¢ºèª â å·è¡ï¼
 // ============================================================
 const ACTIONS_FILE = path.join(DATA_DIR, "actions.json");
 if (!fs.existsSync(ACTIONS_FILE)) fs.writeFileSync(ACTIONS_FILE, "[]", "utf8");
@@ -376,7 +408,7 @@ app.post("/api/optimize/execute-pause", async (req, res) => {
   }
 });
 
-// GET /api/optimize/actions — 歷史紀錄
+// GET /api/optimize/actions â æ­·å²ç´é
 app.get("/api/optimize/actions", (req, res) => {
   try {
     const arr = JSON.parse(fs.readFileSync(ACTIONS_FILE, "utf8"));
@@ -458,10 +490,10 @@ app.post("/api/optimize/execute-budget-change", async (req, res) => {
 
 
 // ============================================================
-// /api/intel/* — T2: 競品情報（Meta Ad Library）
+// /api/intel/* â T2: ç«¶åæå ±ï¼Meta Ad Libraryï¼
 // ============================================================
 
-// GET /api/intel/competitor-ads?brand=法朋&country=TW
+// GET /api/intel/competitor-ads?brand=æ³æ&country=TW
 app.get("/api/intel/competitor-ads", async (req, res) => {
   try {
     const brand = req.query.brand;
@@ -480,7 +512,7 @@ app.get("/api/intel/competitor-ads", async (req, res) => {
   }
 });
 
-// GET /api/intel/competitor-scan?country=TW — 掃預設競品名單
+// GET /api/intel/competitor-scan?country=TW â æé è¨­ç«¶ååå®
 app.get("/api/intel/competitor-scan", async (req, res) => {
   try {
     const country = req.query.country || "TW";
@@ -493,14 +525,14 @@ app.get("/api/intel/competitor-scan", async (req, res) => {
   }
 });
 
-// GET /api/intel/competitors — 返回預設競品名單
+// GET /api/intel/competitors â è¿åé è¨­ç«¶ååå®
 app.get("/api/intel/competitors", (req, res) => {
   res.json(meta.DEFAULT_COMPETITORS);
 });
 
 
 // ============================================================
-// /api/social/* — T3: 社群自動發文（NOVA 寫 → 你確認 → 發）
+// /api/social/* â T3: ç¤¾ç¾¤èªåç¼æï¼NOVA å¯« â ä½ ç¢ºèª â ç¼ï¼
 // ============================================================
 const DRAFTS_FILE = path.join(DATA_DIR, "drafts.json");
 if (!fs.existsSync(DRAFTS_FILE)) fs.writeFileSync(DRAFTS_FILE, "[]", "utf8");
@@ -513,25 +545,25 @@ function saveDrafts(arr) {
 }
 
 // POST /api/social/generate-draft  body: {brief, platform, count}
-// 用 NOVA 生 count 份草稿
+// ç¨ NOVA ç count ä»½èç¨¿
 app.post("/api/social/generate-draft", async (req, res) => {
   const { brief, platform = "FB", count = 3 } = req.body || {};
   if (!brief || brief.trim().length < 5) return res.status(400).json({ error: "brief too short" });
   if (!anthropic) return res.status(500).json({ error: "ANTHROPIC_API_KEY not set" });
 
   const emp = EMPLOYEES["nova"];
-  const platformTag = platform === "IG" ? "Instagram（短、重畫面感、hashtags）" : "Facebook（較長、可帶連結、故事感）";
+  const platformTag = platform === "IG" ? "Instagramï¼ç­ãéç«é¢æãhashtagsï¼" : "Facebookï¼è¼é·ãå¯å¸¶é£çµãæäºæï¼";
 
-  const userPrompt = `請針對下面的 brief，寫 ${count} 個不同風格的 ${platformTag} 貼文草稿。
+  const userPrompt = `è«éå°ä¸é¢ç briefï¼å¯« ${count} åä¸åé¢¨æ ¼ç ${platformTag} è²¼æèç¨¿ã
 
-Brief：${brief}
+Briefï¼${brief}
 
-要求：
-- 回傳 JSON 陣列格式：[{"style":"風格名","caption":"內容"}, ...]
-- 每個草稿的 style 標題要不同（例如：情感型、功能型、好奇心型、情境型）
-- caption 要符合 ofz beauty academy 品牌語調（精品、內斂、不農場標題）
-- FB 貼文 150-300 字，IG 貼文 80-150 字 + 3-5 個 hashtag
-- 直接回 JSON 陣列，不要任何前後綴或 markdown`;
+è¦æ±ï¼
+- åå³ JSON é£åæ ¼å¼ï¼[{"style":"é¢¨æ ¼å","caption":"å§å®¹"}, ...]
+- æ¯åèç¨¿ç style æ¨é¡è¦ä¸åï¼ä¾å¦ï¼ææåãåè½åãå¥½å¥å¿åãæå¢åï¼
+- caption è¦ç¬¦å ofz beauty academy åçèªèª¿ï¼ç²¾åãå§æãä¸è¾²å ´æ¨é¡ï¼
+- FB è²¼æ 150-300 å­ï¼IG è²¼æ 80-150 å­ + 3-5 å hashtag
+- ç´æ¥å JSON é£åï¼ä¸è¦ä»»ä½åå¾ç¶´æ markdown`;
 
   try {
     const msg = await anthropic.messages.create({
@@ -541,7 +573,7 @@ Brief：${brief}
       messages: [{ role: "user", content: userPrompt }],
     });
     const text = msg.content.map(b => b.text || "").join("").trim();
-    // 嘗試抽取 JSON 陣列
+    // åè©¦æ½å JSON é£å
     let drafts;
     try {
       const m = text.match(/\[[\s\S]*\]/);
@@ -549,7 +581,7 @@ Brief：${brief}
     } catch(e) {
       return res.status(500).json({ error: "Failed to parse NOVA response as JSON", raw: text.slice(0, 500) });
     }
-    // 儲存 draft pack
+    // å²å­ draft pack
     const record = {
       id: Date.now() + "_" + Math.floor(Math.random() * 1000),
       createdAt: new Date().toISOString(),
@@ -557,7 +589,7 @@ Brief：${brief}
       platform,
       drafts: drafts.map((d, i) => ({
         index: i,
-        style: d.style || `版本${i+1}`,
+        style: d.style || `çæ¬${i+1}`,
         caption: d.caption || "",
       })),
       status: "pending",
@@ -572,13 +604,13 @@ Brief：${brief}
   }
 });
 
-// GET /api/social/drafts — 列出草稿
+// GET /api/social/drafts â ååºèç¨¿
 app.get("/api/social/drafts", (req, res) => {
   res.json(loadDrafts().slice(-30).reverse());
 });
 
 // POST /api/social/publish  body: {draftId, index, caption, platform, confirmed:true}
-// draftId + index 是從草稿包選一個；caption 是你最終編輯過的版本
+// draftId + index æ¯å¾èç¨¿åé¸ä¸åï¼caption æ¯ä½ æçµç·¨è¼¯éççæ¬
 app.post("/api/social/publish", async (req, res) => {
   const { draftId, index, caption, platform, imageUrl, link, confirmed } = req.body || {};
   if (confirmed !== true) return res.status(400).json({ error: "must include confirmed:true" });
@@ -590,7 +622,7 @@ app.post("/api/social/publish", async (req, res) => {
       if (!imageUrl) return res.status(400).json({ error: "IG post requires imageUrl" });
       result = await meta.publishIgImagePost({ imageUrl, caption });
     } else {
-      // FB: 如果有 imageUrl 就用 photos endpoint，否則用 feed
+      // FB: å¦ææ imageUrl å°±ç¨ photos endpointï¼å¦åç¨ feed
       if (imageUrl) {
         result = await meta.publishFbPhoto({ imageUrl, message: caption });
       } else {
@@ -598,7 +630,7 @@ app.post("/api/social/publish", async (req, res) => {
       }
     }
 
-    // 更新 draft 狀態
+    // æ´æ° draft çæ
     if (draftId) {
       const arr = loadDrafts();
       const rec = arr.find(r => r.id === draftId);
@@ -611,7 +643,7 @@ app.post("/api/social/publish", async (req, res) => {
         saveDrafts(arr);
       }
     }
-    // 寫 action log
+    // å¯« action log
     appendAction({
       type: "social-publish",
       platform,
@@ -637,7 +669,7 @@ app.post("/api/social/publish", async (req, res) => {
 
 
 // ============================================================
-// /api/meta/token/* — Token 管理 (T10)
+// /api/meta/token/* â Token ç®¡ç (T10)
 // ============================================================
 
 app.get("/api/meta/token/status", async (req, res) => {
@@ -652,10 +684,10 @@ app.get("/api/meta/token/status", async (req, res) => {
 app.post("/api/meta/token/refresh", async (req, res) => {
   try {
     const result = await meta.refreshUserToken();
-    // 更新記憶體中的 env (下次 API 呼叫就會用新 token)
+    // æ´æ°è¨æ¶é«ä¸­ç env (ä¸æ¬¡ API å¼å«å°±æç¨æ° token)
     process.env.META_ACCESS_TOKEN = result.token;
     appendAction({ type: "meta-token-refresh", expiresAt: result.expiresAt });
-    res.json({ ok: true, expiresAt: result.expiresAt, expiresIn: result.expiresIn, note: "新 token 已更新到記憶體。要永久保存請手動複製到 Render env vars 的 META_ACCESS_TOKEN。" });
+    res.json({ ok: true, expiresAt: result.expiresAt, expiresIn: result.expiresIn, note: "æ° token å·²æ´æ°å°è¨æ¶é«ãè¦æ°¸ä¹ä¿å­è«æåè¤è£½å° Render env vars ç META_ACCESS_TOKENã" });
   } catch (err) {
     res.status(500).json({ error: String(err.message || err) });
   }
@@ -664,7 +696,7 @@ app.post("/api/meta/token/refresh", async (req, res) => {
 app.get("/api/meta/token/pages", async (req, res) => {
   try {
     const pages = await meta.getLongLivedPageToken();
-    // 不直接回傳 token 明碼（安全起見）
+    // ä¸ç´æ¥åå³ token æç¢¼ï¼å®å¨èµ·è¦ï¼
     const masked = pages.map(p => ({ id: p.id, name: p.name, tokenPreview: p.pageToken.slice(0, 20) + "...", tokenFull: p.pageToken }));
     res.json({ ok: true, pages: masked });
   } catch (err) {
@@ -672,7 +704,7 @@ app.get("/api/meta/token/pages", async (req, res) => {
   }
 });
 
-// Lazy refresh：伺服器啟動後每 24 小時檢查一次，若 token 剩不到 10 天自動刷新
+// Lazy refreshï¼ä¼ºæå¨ååå¾æ¯ 24 å°ææª¢æ¥ä¸æ¬¡ï¼è¥ token å©ä¸å° 10 å¤©èªåå·æ°
 (async () => {
   const checkAndRefresh = async () => {
     try {
@@ -688,13 +720,13 @@ app.get("/api/meta/token/pages", async (req, res) => {
       console.warn("[meta-token] auto-refresh error:", e.message);
     }
   };
-  // 啟動後 30 秒先檢查一次，之後每 24 小時
+  // ååå¾ 30 ç§åæª¢æ¥ä¸æ¬¡ï¼ä¹å¾æ¯ 24 å°æ
   setTimeout(checkAndRefresh, 30 * 1000);
   setInterval(checkAndRefresh, 24 * 3600 * 1000);
 })();
 
 // ============================================================
-// Tool executor — 跑 READ tool 動作
+// Tool executor â è· READ tool åä½
 // ============================================================
 async function executeReadTool(name, input) {
   switch (name) {
@@ -741,7 +773,7 @@ async function executeReadTool(name, input) {
       return (groups[input.segment] || []).map(c => ({ userId: c.userId, userName: c.userName, frequency: c.frequency, recencyDays: c.recencyDays, monetary: c.monetary, tags: c.tags }));
     }
     case "get_google_summary": {
-      if (!google.tokenOk()) return { error: "Google Ads 未設定" };
+      if (!google.tokenOk()) return { error: "Google Ads æªè¨­å®" };
       return await google.getAccountSummary({ dateRange: input.dateRange || "LAST_7_DAYS" });
     }
     case "get_account_health": {
@@ -766,7 +798,7 @@ async function executeReadTool(name, input) {
 }
 
 // ============================================================
-// /api/chat-agent — 支援 tool use loop，員工可以用工具
+// /api/chat-agent â æ¯æ´ tool use loopï¼å¡å·¥å¯ä»¥ç¨å·¥å·
 // ============================================================
 const chatAgentHandler = async (req, res) => {
   const { employeeId, messages } = req.body || {};
@@ -781,7 +813,7 @@ const chatAgentHandler = async (req, res) => {
     const tools = toolDefs.asAnthropicTools(emp.tools || []);
     let msgs = messages.map(m => ({ role: m.role === "ai" ? "assistant" : m.role, content: typeof m.content === "string" ? m.content : JSON.stringify(m.content) }));
 
-    send("status", { text: `📥 ${emp.name} 收到任務，可用工具 ${tools.length} 個` });
+    send("status", { text: `ð¥ ${emp.name} æ¶å°ä»»åï¼å¯ç¨å·¥å· ${tools.length} å` });
 
     let safety = 0;
     while (safety++ < 8) {
@@ -809,7 +841,7 @@ const chatAgentHandler = async (req, res) => {
       const toolResults = [];
       for (const tu of toolUses) {
         if (toolDefs.isWriteTool(tu.name)) {
-          // WRITE：存 proposal、通知前端、暫停對話
+          // WRITEï¼å­ proposalãéç¥åç«¯ãæ«åå°è©±
           const proposalId = "p_" + Date.now() + "_" + Math.random().toString(36).slice(2, 8);
           PROPOSALS.set(proposalId, {
             id: proposalId,
@@ -828,13 +860,13 @@ const chatAgentHandler = async (req, res) => {
             description: toolDefs.TOOL_DEFINITIONS[tu.name].description,
             input: tu.input,
           });
-          send("delta", { text: `\n\n⚠️ **想執行：${toolDefs.TOOL_DEFINITIONS[tu.name].description}**\n\n\`\`\`json\n${JSON.stringify(tu.input, null, 2)}\n\`\`\`\n\nProposal ID: \`${proposalId}\`\n\n半自動模式：請檢查上方提案，然後 POST /api/proposals/${proposalId}/execute 確認執行。` });
+          send("delta", { text: `\n\nâ ï¸ **æ³å·è¡ï¼${toolDefs.TOOL_DEFINITIONS[tu.name].description}**\n\n\`\`\`json\n${JSON.stringify(tu.input, null, 2)}\n\`\`\`\n\nProposal ID: \`${proposalId}\`\n\nåèªåæ¨¡å¼ï¼è«æª¢æ¥ä¸æ¹ææ¡ï¼ç¶å¾ POST /api/proposals/${proposalId}/execute ç¢ºèªå·è¡ã` });
           send("done", { ok: true, pending_proposal: true });
           return res.end();
         }
         // READ tool - execute
         send("tool_call", { tool: tu.name, input: tu.input });
-          send("delta", { text: `\n🔍 [使用工具 ${tu.name}]` });
+          send("delta", { text: `\nð [ä½¿ç¨å·¥å· ${tu.name}]` });
         try {
           const result = await executeReadTool(tu.name, tu.input || {});
           send("tool_result", { tool: tu.name, ok: true });
@@ -857,7 +889,7 @@ const chatAgentHandler = async (req, res) => {
 
 app.post("/api/chat-agent", chatAgentHandler);
 
-// /api/chat — 若員工有 tools，自動走 agent 流程
+// /api/chat â è¥å¡å·¥æ toolsï¼èªåèµ° agent æµç¨
 const _originalChatHandler = async (req, res) => {
   const { employeeId, messages } = req.body || {};
   const emp = EMPLOYEES[employeeId];
@@ -866,13 +898,13 @@ const _originalChatHandler = async (req, res) => {
   if (!Array.isArray(messages) || messages.length === 0) return res.status(400).json({ error: "messages required" });
   const send = setupSSE(res);
   if (!anthropic) {
-    send("status", { text: "🟡 Demo 模式（未設定 API Key）" });
-    send("delta", { text: `<div class="tldr">⚡ Demo 模式</div><p>請設定 ANTHROPIC_API_KEY 後重新部署</p>` });
+    send("status", { text: "ð¡ Demo æ¨¡å¼ï¼æªè¨­å® API Keyï¼" });
+    send("delta", { text: `<div class="tldr">â¡ Demo æ¨¡å¼</div><p>è«è¨­å® ANTHROPIC_API_KEY å¾éæ°é¨ç½²</p>` });
     send("done", { ok: true });
     return res.end();
   }
   try {
-    send("status", { text: `📥 ${emp.name} 收到任務` });
+    send("status", { text: `ð¥ ${emp.name} æ¶å°ä»»å` });
     const liveSystem = await maybeAugmentSystemPrompt(emp);
     const stream = await anthropic.messages.stream({
       model: MODEL,
@@ -894,7 +926,7 @@ const _originalChatHandler = async (req, res) => {
 };
 
 // ============================================================
-// /api/proposals/:id/execute — 使用者確認後真正執行 write 動作
+// /api/proposals/:id/execute â ä½¿ç¨èç¢ºèªå¾çæ­£å·è¡ write åä½
 // ============================================================
 app.post("/api/proposals/:id/execute", async (req, res) => {
   const p = PROPOSALS.get(req.params.id);
@@ -959,7 +991,7 @@ app.post("/api/proposals/:id/execute", async (req, res) => {
       default:
         return res.status(400).json({ error: "unknown proposal tool: " + p.toolName });
     }
-    // 繼續對話 - 把 tool 結果塞回去讓員工總結
+    // ç¹¼çºå°è©± - æ tool çµæå¡åå»è®å¡å·¥ç¸½çµ
     const updatedMsgs = [...p.messages, { role: "user", content: [{ type: "tool_result", tool_use_id: p.toolUseId, content: JSON.stringify(result).slice(0, 4000) }] }];
     const followup = await anthropic.messages.create({
       model: MODEL,
@@ -978,7 +1010,7 @@ app.post("/api/proposals/:id/execute", async (req, res) => {
 
 app.post("/api/chat", _originalChatHandler);
 // ============================================================
-// /api/orchestrate — Marketing Director mode
+// /api/orchestrate â Marketing Director mode
 // ------------------------------------------------------------
 // Phase 1: Director plans (returns JSON: {plan, assignments})
 // Phase 2: All assigned workers run in PARALLEL
@@ -995,37 +1027,37 @@ app.post("/api/orchestrate", async (req, res) => {
   const workers = workerIds.map(id => EMPLOYEES[id]);
 
   if (!anthropic) {
-    send("error", { message: "尚未設定 ANTHROPIC_API_KEY" });
+    send("error", { message: "å°æªè¨­å® ANTHROPIC_API_KEY" });
     return res.end();
   }
 
   try {
-    // ───────── Phase 1: Director planning ─────────
-    send("phase", { phase: "planning", text: `👑 ${director.name} 正在分析任務並規劃分工…` });
+    // âââââââââ Phase 1: Director planning âââââââââ
+    send("phase", { phase: "planning", text: `ð ${director.name} æ­£å¨åæä»»åä¸¦è¦ååå·¥â¦` });
 
-    const planningPrompt = `Jeffrey 剛交付以下任務：
+    const planningPrompt = `Jeffrey åäº¤ä»ä»¥ä¸ä»»åï¼
 
-「${task}」
+ã${task}ã
 
-請你以行銷總監身份，先做策略性思考，然後決定要分派給哪些團隊成員平行執行。
+è«ä½ ä»¥è¡é·ç¸½ç£èº«ä»½ï¼ååç­ç¥æ§æèï¼ç¶å¾æ±ºå®è¦åæ´¾çµ¦åªäºåéæå¡å¹³è¡å·è¡ã
 
-可分派的成員（你不能派給自己）：
-${workers.map(w => `- ${w.id} · ${w.name} · ${w.role}：${w.bio}`).join("\n")}
+å¯åæ´¾çæå¡ï¼ä½ ä¸è½æ´¾çµ¦èªå·±ï¼ï¼
+${workers.map(w => `- ${w.id} Â· ${w.name} Â· ${w.role}ï¼${w.bio}`).join("\n")}
 
-請以 JSON 格式回覆，外面用 \`\`\`json ... \`\`\` 包覆，結構如下：
+è«ä»¥ JSON æ ¼å¼åè¦ï¼å¤é¢ç¨ \`\`\`json ... \`\`\` åè¦ï¼çµæ§å¦ä¸ï¼
 {
-  "strategy": "你的策略思考（2–3 句）",
+  "strategy": "ä½ çç­ç¥æèï¼2â3 å¥ï¼",
   "assignments": [
-    { "employeeId": "leon", "task": "請 LEON 具體要做什麼（1–3 句）" },
+    { "employeeId": "leon", "task": "è« LEON å·é«è¦åä»éº¼ï¼1â3 å¥ï¼" },
     { "employeeId": "camille", "task": "..." }
   ]
 }
 
-原則：
-- 至少分派給 3 位、最多 6 位成員（根據任務複雜度）
-- 每個分派任務要具體、可執行
-- 不要重複指派相同範圍給多人
-- employeeId 必須來自上面的清單`;
+ååï¼
+- è³å°åæ´¾çµ¦ 3 ä½ãæå¤ 6 ä½æå¡ï¼æ ¹æä»»åè¤éåº¦ï¼
+- æ¯ååæ´¾ä»»åè¦å·é«ãå¯å·è¡
+- ä¸è¦éè¤ææ´¾ç¸åç¯åçµ¦å¤äºº
+- employeeId å¿é ä¾èªä¸é¢çæ¸å®`;
 
     const planResp = await anthropic.messages.create({
       model: DIRECTOR_MODEL,
@@ -1039,11 +1071,11 @@ ${workers.map(w => `- ${w.id} · ${w.name} · ${w.role}：${w.bio}`).join("\n")}
     try {
       plan = JSON.parse(jsonMatch ? jsonMatch[1] : planText);
     } catch (e) {
-      send("error", { message: "總監規劃 JSON 解析失敗" });
+      send("error", { message: "ç¸½ç£è¦å JSON è§£æå¤±æ" });
       return res.end();
     }
     if (!Array.isArray(plan.assignments) || plan.assignments.length === 0) {
-      send("error", { message: "總監未產生有效分派" });
+      send("error", { message: "ç¸½ç£æªç¢çææåæ´¾" });
       return res.end();
     }
     // Filter out invalid assignments
@@ -1061,8 +1093,8 @@ ${workers.map(w => `- ${w.id} · ${w.name} · ${w.role}：${w.bio}`).join("\n")}
       })),
     });
 
-    // ───────── Phase 2: Parallel execution ─────────
-    send("phase", { phase: "executing", text: `🚀 ${plan.assignments.length} 位專員同時開工…` });
+    // âââââââââ Phase 2: Parallel execution âââââââââ
+    send("phase", { phase: "executing", text: `ð ${plan.assignments.length} ä½å°å¡åæéå·¥â¦` });
 
     const workerOutputs = {};
     const runWorker = async (assignment) => {
@@ -1077,7 +1109,7 @@ ${workers.map(w => `- ${w.id} · ${w.name} · ${w.role}：${w.bio}`).join("\n")}
           system: liveSystem,
           messages: [{
             role: "user",
-            content: `行銷總監 VICTOR 已將以下任務分派給你：\n\n「${assignment.task}」\n\n背景：Jeffrey 原本交付的任務是「${task}」。\n請聚焦於你被分派的範圍，產出可立即使用的內容。`
+            content: `è¡é·ç¸½ç£ VICTOR å·²å°ä»¥ä¸ä»»ååæ´¾çµ¦ä½ ï¼\n\nã${assignment.task}ã\n\nèæ¯ï¼Jeffrey åæ¬äº¤ä»çä»»åæ¯ã${task}ãã\nè«èç¦æ¼ä½ è¢«åæ´¾çç¯åï¼ç¢åºå¯ç«å³ä½¿ç¨çå§å®¹ã`
           }],
         });
         let full = "";
@@ -1090,7 +1122,7 @@ ${workers.map(w => `- ${w.id} · ${w.name} · ${w.role}：${w.bio}`).join("\n")}
         send("worker_done", { employeeId: empId, length: full.length });
       } catch (err) {
         console.error(`[orchestrate worker ${empId}]`, err);
-        workerOutputs[empId] = `<p>⚠️ ${emp.name} 執行失敗：${err.message}</p>`;
+        workerOutputs[empId] = `<p>â ï¸ ${emp.name} å·è¡å¤±æï¼${err.message}</p>`;
         send("worker_error", { employeeId: empId, message: String(err.message || err) });
       }
     };
@@ -1098,71 +1130,71 @@ ${workers.map(w => `- ${w.id} · ${w.name} · ${w.role}：${w.bio}`).join("\n")}
     // PARALLEL execution
     await Promise.all(plan.assignments.map(runWorker));
 
-    // ───────── Phase 3: Director consolidation ─────────
-    send("phase", { phase: "consolidating", text: `👑 ${director.name} 正在統整全團隊成果…` });
+    // âââââââââ Phase 3: Director consolidation âââââââââ
+    send("phase", { phase: "consolidating", text: `ð ${director.name} æ­£å¨çµ±æ´å¨åéææâ¦` });
 
     const consolidationParts = plan.assignments.map(a => {
       const emp = EMPLOYEES[a.employeeId];
-      return `### ${emp.name} · ${emp.role}\n分派任務：${a.task}\n\n成果：\n${workerOutputs[a.employeeId] || "(無回應)"}`;
+      return `### ${emp.name} Â· ${emp.role}\nåæ´¾ä»»åï¼${a.task}\n\nææï¼\n${workerOutputs[a.employeeId] || "(ç¡åæ)"}`;
     }).join("\n\n---\n\n");
 
-    const consolidationPrompt = `你剛剛將以下任務分派給專員平行執行：
+    const consolidationPrompt = `ä½ ååå°ä»¥ä¸ä»»ååæ´¾çµ¦å°å¡å¹³è¡å·è¡ï¼
 
-【Jeffrey 原始任務】
+ãJeffrey åå§ä»»åã
 ${task}
 
-【你的策略】
+ãä½ çç­ç¥ã
 ${plan.strategy}
 
-【各專員成果】
+ãåå°å¡ææã
 ${consolidationParts}
 
-請以行銷總監身份，將以上專員成果整合成一份給 Jeffrey 的高層級決策報告。
+è«ä»¥è¡é·ç¸½ç£èº«ä»½ï¼å°ä»¥ä¸å°å¡æææ´åæä¸ä»½çµ¦ Jeffrey çé«å±¤ç´æ±ºç­å ±åã
 
-**輸出結構（嚴格按順序）：**
+**è¼¸åºçµæ§ï¼å´æ ¼æé åºï¼ï¼**
 
-① <div class="tldr">⚡ TL;DR｜一句話結論</div>
+â  <div class="tldr">â¡ TL;DRï½ä¸å¥è©±çµè«</div>
 
-② <h4>🎯 整體策略</h4>
-2–3 句說明本次行動的核心主軸。
+â¡ <h4>ð¯ æ´é«ç­ç¥</h4>
+2â3 å¥èªªææ¬æ¬¡è¡åçæ ¸å¿ä¸»è»¸ã
 
-③ <h4>📋 各專員重點摘要</h4>
-每位專員只摘要 2–3 個核心要點（不要重複貼原文）。用 <ul><li> 排版。
+â¢ <h4>ð åå°å¡éé»æè¦</h4>
+æ¯ä½å°å¡åªæè¦ 2â3 åæ ¸å¿è¦é»ï¼ä¸è¦éè¤è²¼åæï¼ãç¨ <ul><li> æçã
 
-④ <div class="action-box">
-  <h4>✅ JEFFREY 本週待辦清單</h4>
-  <p style="font-size:13px;opacity:0.85;">以下是你「本人」必須親自做的事（專員已經做的不要列在這）：</p>
+â£ <div class="action-box">
+  <h4>â JEFFREY æ¬é±å¾è¾¦æ¸å®</h4>
+  <p style="font-size:13px;opacity:0.85;">ä»¥ä¸æ¯ä½ ãæ¬äººãå¿é è¦ªèªåçäºï¼å°å¡å·²ç¶åçä¸è¦åå¨éï¼ï¼</p>
   <ol class="action-list">
-    <li><strong>[DEADLINE]</strong> 具體行動描述（為何要做、需要多久、做完交給誰）</li>
-    …
+    <li><strong>[DEADLINE]</strong> å·é«è¡åæè¿°ï¼çºä½è¦åãéè¦å¤ä¹ãåå®äº¤çµ¦èª°ï¼</li>
+    â¦
   </ol>
 </div>
-待辦項目 3–6 個，每項必須含截止日（例：4/18 前、本週五前），並標註需要多久（10 分鐘/半天/1 天）。
+å¾è¾¦é ç® 3â6 åï¼æ¯é å¿é å«æªæ­¢æ¥ï¼ä¾ï¼4/18 åãæ¬é±äºåï¼ï¼ä¸¦æ¨è¨»éè¦å¤ä¹ï¼10 åé/åå¤©/1 å¤©ï¼ã
 
-⑤ <div class="decision-box">
-  <h4>🤔 需要你現在決策的事</h4>
-  <p style="font-size:13px;opacity:0.85;">以下決策必須你本人拍板，專員無法代決：</p>
+â¤ <div class="decision-box">
+  <h4>ð¤ éè¦ä½ ç¾å¨æ±ºç­çäº</h4>
+  <p style="font-size:13px;opacity:0.85;">ä»¥ä¸æ±ºç­å¿é ä½ æ¬äººææ¿ï¼å°å¡ç¡æ³ä»£æ±ºï¼</p>
   <div class="decision">
-    <div class="d-title"><strong>決策 1：</strong>（決策主題）</div>
-    <div class="d-ctx">背景脈絡 1–2 句</div>
+    <div class="d-title"><strong>æ±ºç­ 1ï¼</strong>ï¼æ±ºç­ä¸»é¡ï¼</div>
+    <div class="d-ctx">èæ¯èçµ¡ 1â2 å¥</div>
     <ul class="d-options">
-      <li><strong>方案 A：</strong>描述｜<em>優點：…</em>｜<em>缺點：…</em></li>
-      <li><strong>方案 B：</strong>描述｜<em>優點：…</em>｜<em>缺點：…</em></li>
-      <li><strong>方案 C：</strong>描述｜<em>優點：…</em>｜<em>缺點：…</em></li>
+      <li><strong>æ¹æ¡ Aï¼</strong>æè¿°ï½<em>åªé»ï¼â¦</em>ï½<em>ç¼ºé»ï¼â¦</em></li>
+      <li><strong>æ¹æ¡ Bï¼</strong>æè¿°ï½<em>åªé»ï¼â¦</em>ï½<em>ç¼ºé»ï¼â¦</em></li>
+      <li><strong>æ¹æ¡ Cï¼</strong>æè¿°ï½<em>åªé»ï¼â¦</em>ï½<em>ç¼ºé»ï¼â¦</em></li>
     </ul>
-    <div class="d-reco">👑 <strong>VICTOR 建議：</strong>方案 X，因為…</div>
+    <div class="d-reco">ð <strong>VICTOR å»ºè­°ï¼</strong>æ¹æ¡ Xï¼å çºâ¦</div>
   </div>
-  （1–3 個決策）
+  ï¼1â3 åæ±ºç­ï¼
 </div>
 
-⑥ <h4>📦 需要你提供的資源</h4>
-<ul><li>預算／素材／授權／帳號權限等等，清楚列出，沒有就寫「無」</li></ul>
+â¥ <h4>ð¦ éè¦ä½ æä¾çè³æº</h4>
+<ul><li>é ç®ï¼ç´ æï¼ææ¬ï¼å¸³èæ¬éç­ç­ï¼æ¸æ¥ååºï¼æ²æå°±å¯«ãç¡ã</li></ul>
 
-**規則：**
-- 全程使用 HTML 排版，可用 <h4>、<p>、<ul><li>、<ol><li>、<strong>、<em>、<table class="data">、以及上述 class
-- 字數 900–1500 字
-- 待辦清單裡的事必須是 Jeffrey 本人可執行的（例如：確認預算、聯絡 KOL、上傳素材、批准文案），絕對不要把專員已經做完的事列進去
-- 決策請示必須提供具體選項，不要只問「要不要做」這種是非題`;
+**è¦åï¼**
+- å¨ç¨ä½¿ç¨ HTML æçï¼å¯ç¨ <h4>ã<p>ã<ul><li>ã<ol><li>ã<strong>ã<em>ã<table class="data">ãä»¥åä¸è¿° class
+- å­æ¸ 900â1500 å­
+- å¾è¾¦æ¸å®è£¡çäºå¿é æ¯ Jeffrey æ¬äººå¯å·è¡çï¼ä¾å¦ï¼ç¢ºèªé ç®ãè¯çµ¡ KOLãä¸å³ç´ æãæ¹åææ¡ï¼ï¼çµå°ä¸è¦æå°å¡å·²ç¶åå®çäºåé²å»
+- æ±ºç­è«ç¤ºå¿é æä¾å·é«é¸é ï¼ä¸è¦åªåãè¦ä¸è¦åãéç¨®æ¯éé¡`;
 
     const finalStream = await anthropic.messages.stream({
       model: DIRECTOR_MODEL,
@@ -1199,7 +1231,7 @@ async function runScheduledTask(empId, prompt, label) {
   if (!anthropic) return;
   const emp = EMPLOYEES[empId];
   if (!emp) return;
-  console.log(`[cron:${label}] running ${emp.name}…`);
+  console.log(`[cron:${label}] running ${emp.name}â¦`);
   try {
     const msg = await anthropic.messages.create({
       model: MODEL,
@@ -1217,7 +1249,7 @@ async function runScheduledTask(empId, prompt, label) {
       label, prompt, output: text,
     });
     fs.writeFileSync(REPORTS_FILE, JSON.stringify(reports, null, 2), "utf8");
-    console.log(`[cron:${label}] ✅ done`);
+    console.log(`[cron:${label}] â done`);
   } catch (err) {
     console.error(`[cron:${label}]`, err);
   }
@@ -1226,18 +1258,18 @@ async function runScheduledTask(empId, prompt, label) {
 autoPublish.registerCronJobs(cron);
 cron.schedule("0 9 * * 1", () => {
   runScheduledTask("victor",
-    "請產出本週的《團隊週策略簡報》：本週主軸、各專員的重點任務、預算分配、風險預警、3 個需要 Jeffrey 決策的問題。",
+    "è«ç¢åºæ¬é±çãåéé±ç­ç¥ç°¡å ±ãï¼æ¬é±ä¸»è»¸ãåå°å¡çéé»ä»»åãé ç®åéãé¢¨éªé è­¦ã3 åéè¦ Jeffrey æ±ºç­çåé¡ã",
     "weekly-strategy-brief");
 }, { timezone: CRON_TZ });
 
 cron.schedule("0 17 * * 5", () => {
   runScheduledTask("dex",
-    "請產出本週廣告成效報告。若無實際數據請使用模擬數據並標註。",
+    "è«ç¢åºæ¬é±å»£åææå ±åãè¥ç¡å¯¦éæ¸æè«ä½¿ç¨æ¨¡æ¬æ¸æä¸¦æ¨è¨»ã",
     "weekly-analytics-report");
 }, { timezone: CRON_TZ });
 
 // ============================================================
-// 主動推播：每日 09:00 早安簡報 + 每 30 分鐘事件監控
+// ä¸»åæ¨æ­ï¼æ¯æ¥ 09:00 æ©å®ç°¡å ± + æ¯ 30 åéäºä»¶ç£æ§
 // ============================================================
 cron.schedule("0 9 * * *", async () => {
   console.log("[alerts] running daily briefing...");
@@ -1266,7 +1298,7 @@ cron.schedule("*/30 * * * *", async () => {
 
 
 // ============================================================
-// /api/line/* — LINE 客服 + 廣播 (T4.5)
+// /api/line/* â LINE å®¢æ + å»£æ­ (T4.5)
 // ============================================================
 const LINE_MESSAGES_FILE = path.join(DATA_DIR, "line-messages.json");
 if (!fs.existsSync(LINE_MESSAGES_FILE)) fs.writeFileSync(LINE_MESSAGES_FILE, "[]", "utf8");
@@ -1279,7 +1311,7 @@ function saveLineMessages(arr) {
 }
 
 async function handleLineEvent(event) {
-  // 目前先處理文字訊息；圖片、貼圖可以之後擴充
+  // ç®ååèçæå­è¨æ¯ï¼åçãè²¼åå¯ä»¥ä¹å¾æ´å
   if (event.type !== "message") return;
   if (event.message.type !== "text") return;
 
@@ -1293,40 +1325,40 @@ async function handleLineEvent(event) {
     try { profile = await line.getUserProfile(userId); } catch (e) {}
   }
 
-  // 偵測 admin 註冊指令：使用者在 LINE Bot 對話傳「/admin」就把 userId 存起來
-  if (text.trim() === "/admin" || text.trim() === "/admin註冊") {
+  // åµæ¸¬ admin è¨»åæä»¤ï¼ä½¿ç¨èå¨ LINE Bot å°è©±å³ã/adminãå°±æ userId å­èµ·ä¾
+  if (text.trim() === "/admin" || text.trim() === "/adminè¨»å") {
     if (userId) {
       alerts.registerAdminFromLine(DATA_DIR, userId, profile && profile.displayName);
       try {
         await line.replyMessage(replyToken, [{
           type: "text",
-          text: `✅ 已註冊為 admin！\n\n你會收到：\n📊 每日早上 09:00 早安簡報\n⚠️ 廣告/客戶/預算 即時警示\n\n第一份簡報明天早上見。先傳「/admin test」可以馬上跑一份測試簡報。`,
+          text: `â å·²è¨»åçº adminï¼\n\nä½ ææ¶å°ï¼\nð æ¯æ¥æ©ä¸ 09:00 æ©å®ç°¡å ±\nâ ï¸ å»£å/å®¢æ¶/é ç® å³æè­¦ç¤º\n\nç¬¬ä¸ä»½ç°¡å ±æå¤©æ©ä¸è¦ãåå³ã/admin testãå¯ä»¥é¦¬ä¸è·ä¸ä»½æ¸¬è©¦ç°¡å ±ã`,
         }]);
       } catch (e) {}
     }
     return;
   }
 
-  // admin 手動觸發測試簡報
-  if (text.trim() === "/admin test" || text.trim() === "/admin 測試") {
+  // admin æåè§¸ç¼æ¸¬è©¦ç°¡å ±
+  if (text.trim() === "/admin test" || text.trim() === "/admin æ¸¬è©¦") {
     const adminData = alerts.loadAdmin(DATA_DIR);
     if (!adminData.lineUserId || adminData.lineUserId !== userId) {
-      try { await line.replyMessage(replyToken, [{ type: "text", text: "⚠️ 你不是 admin，請先傳 /admin 註冊" }]); } catch (e) {}
+      try { await line.replyMessage(replyToken, [{ type: "text", text: "â ï¸ ä½ ä¸æ¯ adminï¼è«åå³ /admin è¨»å" }]); } catch (e) {}
       return;
     }
-    try { await line.replyMessage(replyToken, [{ type: "text", text: "🔄 正在跑早安簡報，30 秒內傳給你..." }]); } catch (e) {}
+    try { await line.replyMessage(replyToken, [{ type: "text", text: "ð æ­£å¨è·æ©å®ç°¡å ±ï¼30 ç§å§å³çµ¦ä½ ..." }]); } catch (e) {}
     alerts.dailyBriefing({ anthropic, model: MODEL, employees: EMPLOYEES, meta, customers, dataDir: DATA_DIR, line }).catch(err => console.error("[alerts test]", err));
     return;
   }
 
-  // 偵測 admin 決策回覆「1ok / 1no / 1?」
+  // åµæ¸¬ admin æ±ºç­åè¦ã1ok / 1no / 1?ã
   const decisionMatch = text.trim().match(/^([1-3])\s*(ok|no|\?)$/i);
   if (decisionMatch && userId) {
     const adminData = alerts.loadAdmin(DATA_DIR);
     if (adminData.lineUserId === userId) {
       const decisionNum = decisionMatch[1];
       const action = decisionMatch[2].toLowerCase();
-      const actionLabel = action === "ok" ? "✅ 同意" : action === "no" ? "❌ 拒絕" : "🤔 要討論";
+      const actionLabel = action === "ok" ? "â åæ" : action === "no" ? "â æçµ" : "ð¤ è¦è¨è«";
       try {
         const actionsFile = path.join(DATA_DIR, "actions.json");
         const arr = JSON.parse(fs.readFileSync(actionsFile, "utf8"));
@@ -1342,37 +1374,37 @@ async function handleLineEvent(event) {
       } catch (e) { console.error("[admin-decision log]", e); }
       let replyText;
       if (action === "ok") {
-        replyText = `${actionLabel} 決策 ${decisionNum}\n\n已記錄。VICTOR 會在下一份簡報納入這個答案，相關的執行（廣告調整、文案發佈、客人回覆）請到 https://beauty-office.onrender.com 找對應員工完成。`;
+        replyText = `${actionLabel} æ±ºç­ ${decisionNum}\n\nå·²è¨éãVICTOR æå¨ä¸ä¸ä»½ç°¡å ±ç´å¥éåç­æ¡ï¼ç¸éçå·è¡ï¼å»£åèª¿æ´ãææ¡ç¼ä½ãå®¢äººåè¦ï¼è«å° https://beauty-office.onrender.com æ¾å°æå¡å·¥å®æã`;
       } else if (action === "no") {
-        replyText = `${actionLabel} 決策 ${decisionNum}\n\n已記錄為拒絕。VICTOR 明天會用新角度想對策。`;
+        replyText = `${actionLabel} æ±ºç­ ${decisionNum}\n\nå·²è¨éçºæçµãVICTOR æå¤©æç¨æ°è§åº¦æ³å°ç­ã`;
       } else {
-        replyText = `${actionLabel} 決策 ${decisionNum}\n\n打開 https://beauty-office.onrender.com 找 VICTOR 開始討論`;
+        replyText = `${actionLabel} æ±ºç­ ${decisionNum}\n\næé https://beauty-office.onrender.com æ¾ VICTOR éå§è¨è«`;
       }
       try { await line.replyMessage(replyToken, [{ type: "text", text: replyText }]); } catch (e) {}
       return;
     }
   }
 
-  // 用 Claude 分類意圖 + 寫草稿
+  // ç¨ Claude åé¡æå + å¯«èç¨¿
   let classification = null;
   let draft = null;
   if (anthropic) {
     try {
-      const sysPrompt = `你是 ofz beauty academy 的客服助理。
-會收到客人的 LINE 訊息，請做兩件事並輸出 JSON：
-1. 意圖分類：price / pickup / storage / gifting / complaint / product / other
-2. 建議的回覆草稿（精品語調、直接切入、不囉嗦）
+      const sysPrompt = `ä½ æ¯ ofz beauty academy çå®¢æå©çã
+ææ¶å°å®¢äººç LINE è¨æ¯ï¼è«åå©ä»¶äºä¸¦è¼¸åº JSONï¼
+1. æååé¡ï¼price / pickup / storage / gifting / complaint / product / other
+2. å»ºè­°çåè¦èç¨¿ï¼ç²¾åèªèª¿ãç´æ¥åå¥ãä¸åå¦ï¼
 
-品牌資訊（用來回答）：
-- 4 家門店：台南本店、新光西門 B2、新光中港 B2、新光南西 B2
-- 核心療程：飄眉 NT$3,500 / 飄霧眉 NT$5,500 / 霧眉 NT$4,500 / 霧唇 NT$4,500
-- 保存期限：療程後 7 天觀察期，常溫 6 小時
-- 不含防腐劑，每日現做
+åçè³è¨ï¼ç¨ä¾åç­ï¼ï¼
+- 4 å®¶éåºï¼å°åæ¬åºãæ°åè¥¿é B2ãæ°åä¸­æ¸¯ B2ãæ°ååè¥¿ B2
+- æ ¸å¿çç¨ï¼é£ç NT$3,500 / é£é§ç NT$5,500 / é§ç NT$4,500 / é§å NT$4,500
+- ä¿å­æéï¼çç¨å¾ 7 å¤©è§å¯æï¼å¸¸æº« 6 å°æ
+- ä¸å«é²èåï¼æ¯æ¥ç¾å
 
-輸出格式：
+è¼¸åºæ ¼å¼ï¼
 {"intent": "...", "draft": "..."}
 
-直接回 JSON，不要前後綴、不要 markdown。`;
+ç´æ¥å JSONï¼ä¸è¦åå¾ç¶´ãä¸è¦ markdownã`;
       const msg = await anthropic.messages.create({
         model: MODEL,
         max_tokens: 600,
@@ -1410,7 +1442,7 @@ async function handleLineEvent(event) {
   saveLineMessages(arr);
 }
 
-// GET /api/line/status — 檢查 token 是否設定
+// GET /api/line/status â æª¢æ¥ token æ¯å¦è¨­å®
 app.get("/api/line/status", async (req, res) => {
   res.json({
     tokenSet: line.tokenOk(),
@@ -1418,7 +1450,7 @@ app.get("/api/line/status", async (req, res) => {
   });
 });
 
-// GET /api/line/messages — 最近 100 筆訊息（最新在前）
+// GET /api/line/messages â æè¿ 100 ç­è¨æ¯ï¼ææ°å¨åï¼
 app.get("/api/line/messages", (req, res) => {
   const arr = loadLineMessages();
   res.json(arr.slice(-100).reverse());
@@ -1459,7 +1491,7 @@ app.post("/api/line/reply", async (req, res) => {
     rec.repliedAt = new Date().toISOString();
     rec.replyMethod = method;
     saveLineMessages(arr);
-    const preview = (text || "").slice(0, 60) + (imageUrl ? " [+圖]" : "") + (linkUrl ? " [+連結]" : "");
+    const preview = (text || "").slice(0, 60) + (imageUrl ? " [+å]" : "") + (linkUrl ? " [+é£çµ]" : "");
     appendAction({ type: "line-reply", method, userName: rec.userName, messagePreview: preview, success: true });
     res.json({ ok: true, method, result });
   } catch (err) {
@@ -1480,7 +1512,7 @@ app.post("/api/line/broadcast", async (req, res) => {
 
   try {
     const result = await line.broadcastMessage(messages);
-    const preview = (text || "").slice(0, 60) + (imageUrl ? " [+圖]" : "") + (linkUrl ? " [+連結]" : "");
+    const preview = (text || "").slice(0, 60) + (imageUrl ? " [+å]" : "") + (linkUrl ? " [+é£çµ]" : "");
     appendAction({ type: "line-broadcast", messagePreview: preview, success: true });
     res.json({ ok: true, result });
   } catch (err) {
@@ -1490,7 +1522,7 @@ app.post("/api/line/broadcast", async (req, res) => {
 });
 
 // ============================================================
-// /api/google/* — Google Ads 報表 (T5, read-only)
+// /api/google/* â Google Ads å ±è¡¨ (T5, read-only)
 // ============================================================
 
 app.get("/api/google/status", (req, res) => {
@@ -1559,25 +1591,25 @@ app.get("/api/google/ads", async (req, res) => {
 
 app.post("/api/google/analyze", async (req, res) => {
   if (!anthropic) return res.status(500).json({ error: "ANTHROPIC_API_KEY not set" });
-  if (!google.tokenOk()) return res.status(500).json({ error: "Google Ads 未設定" });
+  if (!google.tokenOk()) return res.status(500).json({ error: "Google Ads æªè¨­å®" });
   const { scope = "campaigns", dateRange = "LAST_7_DAYS", extraContext = "" } = req.body || {};
   try {
     let dataBlock = "";
     if (scope === "campaigns") {
       const campaigns = await google.getCampaigns({ dateRange });
-      dataBlock = campaigns.slice(0, 30).map(c => `${c.name} (${c.status}) · 花費 NT$${Math.round(c.cost)} · 點擊 ${c.clicks} · 轉換 ${c.conversions.toFixed(1)} · ROAS ${c.roas.toFixed(2)}`).join("\n");
+      dataBlock = campaigns.slice(0, 30).map(c => `${c.name} (${c.status}) Â· è±è²» NT$${Math.round(c.cost)} Â· é»æ ${c.clicks} Â· è½æ ${c.conversions.toFixed(1)} Â· ROAS ${c.roas.toFixed(2)}`).join("\n");
     } else if (scope === "keywords") {
       const kws = await google.getKeywords({ dateRange });
-      dataBlock = kws.slice(0, 40).map(k => `[${k.matchType}] ${k.keyword} · ${k.campaignName}>${k.adGroupName} · 點擊${k.clicks} 花費NT$${Math.round(k.cost)} 轉換${k.conversions.toFixed(1)} ROAS${k.roas.toFixed(2)}`).join("\n");
+      dataBlock = kws.slice(0, 40).map(k => `[${k.matchType}] ${k.keyword} Â· ${k.campaignName}>${k.adGroupName} Â· é»æ${k.clicks} è±è²»NT$${Math.round(k.cost)} è½æ${k.conversions.toFixed(1)} ROAS${k.roas.toFixed(2)}`).join("\n");
     } else if (scope === "search-terms") {
       const terms = await google.getSearchTerms({ dateRange });
-      dataBlock = terms.slice(0, 40).map(t => `"${t.term}" · ${t.campaignName}>${t.adGroupName} · 點擊${t.clicks} 花費NT$${Math.round(t.cost)} 轉換${t.conversions.toFixed(1)} ROAS${t.roas.toFixed(2)}`).join("\n");
+      dataBlock = terms.slice(0, 40).map(t => `"${t.term}" Â· ${t.campaignName}>${t.adGroupName} Â· é»æ${t.clicks} è±è²»NT$${Math.round(t.cost)} è½æ${t.conversions.toFixed(1)} ROAS${t.roas.toFixed(2)}`).join("\n");
     }
-    if (!dataBlock) return res.json({ ok: true, analysis: "目前沒有任何資料可以分析（帳戶可能還沒開始投放）。" });
+    if (!dataBlock) return res.json({ ok: true, analysis: "ç®åæ²æä»»ä½è³æå¯ä»¥åæï¼å¸³æ¶å¯è½éæ²éå§ææ¾ï¼ã" });
 
     const emp = EMPLOYEES["leon"] || EMPLOYEES["victor"];
-    const systemPrompt = (emp?.systemPrompt || "你是數位廣告操盤手。") + "\n\n本次任務：分析以下 Google Ads " + scope + " 資料，用繁中回覆，給 3-5 點具體優化建議。每點標註優先順序（高/中/低）。";
-    const userPrompt = `資料區間：${dateRange}\n\n資料：\n${dataBlock}\n\n${extraContext ? "額外情境：" + extraContext + "\n\n" : ""}請給優化建議。`;
+    const systemPrompt = (emp?.systemPrompt || "ä½ æ¯æ¸ä½å»£åæç¤æã") + "\n\næ¬æ¬¡ä»»åï¼åæä»¥ä¸ Google Ads " + scope + " è³æï¼ç¨ç¹ä¸­åè¦ï¼çµ¦ 3-5 é»å·é«åªåå»ºè­°ãæ¯é»æ¨è¨»åªåé åºï¼é«/ä¸­/ä½ï¼ã";
+    const userPrompt = `è³æåéï¼${dateRange}\n\nè³æï¼\n${dataBlock}\n\n${extraContext ? "é¡å¤æå¢ï¼" + extraContext + "\n\n" : ""}è«çµ¦åªåå»ºè­°ã`;
     const msg = await anthropic.messages.create({
       model: DIRECTOR_MODEL,
       max_tokens: 2048,
@@ -1592,7 +1624,7 @@ app.post("/api/google/analyze", async (req, res) => {
 });
 
 // ============================================================
-// /api/customers/* — LINE 客人畫像 + RFM 分群 (T8)
+// /api/customers/* â LINE å®¢äººç«å + RFM åç¾¤ (T8)
 // ============================================================
 
 // GET /api/customers?refresh=1
@@ -1629,7 +1661,7 @@ app.get("/api/customers/:userId", (req, res) => {
   }
 });
 
-// POST /api/customers/:userId/analyze — AI 生成畫像
+// POST /api/customers/:userId/analyze â AI çæç«å
 app.post("/api/customers/:userId/analyze", async (req, res) => {
   if (!anthropic) return res.status(500).json({ error: "ANTHROPIC_API_KEY not set" });
   try {
@@ -1638,20 +1670,20 @@ app.post("/api/customers/:userId/analyze", async (req, res) => {
     const c = list.find(x => x.userId === req.params.userId);
     if (!c) return res.status(404).json({ error: "customer not found" });
 
-    const history = c.messages.slice(0, 30).reverse().map(m => `[${m.intent}] ${m.text}${m.replyText ? " → 店回覆：" + m.replyText.slice(0,60) : ""}`).join("\n");
-    const systemPrompt = `你是 ofz beauty academy 的客人分析師。根據客人與品牌客服的 LINE 對話紀錄，推測客人畫像並給出具體行動建議。品牌主打紋繡療程（飄眉 NT$3,500 / 飄霧眉 NT$5,500 / 霧眉 NT$4,500 / 霧唇 NT$4,500，療程後 7 天觀察期），3 家分店 12 位老師。
+    const history = c.messages.slice(0, 30).reverse().map(m => `[${m.intent}] ${m.text}${m.replyText ? " â åºåè¦ï¼" + m.replyText.slice(0,60) : ""}`).join("\n");
+    const systemPrompt = `ä½ æ¯ ofz beauty academy çå®¢äººåæå¸«ãæ ¹æå®¢äººèåçå®¢æç LINE å°è©±ç´éï¼æ¨æ¸¬å®¢äººç«åä¸¦çµ¦åºå·é«è¡åå»ºè­°ãåçä¸»æç´ç¹¡çç¨ï¼é£ç NT$3,500 / é£é§ç NT$5,500 / é§ç NT$4,500 / é§å NT$4,500ï¼çç¨å¾ 7 å¤©è§å¯æï¼ï¼3 å®¶ååº 12 ä½èå¸«ã
 
-回覆 JSON：
+åè¦ JSONï¼
 {
-  "profile": "一段 2-3 句話的客人畫像（推測年齡、身份、動機）",
-  "preferences": ["偏好 1", "偏好 2", "偏好 3"],
-  "tags": ["短標籤1", "短標籤2", "短標籤3"],
-  "nextContact": "建議下次聯絡時機與訊息主題",
-  "suggestedMessage": "一段 50-80 字可以直接發給這位客人的 LINE 訊息（繁中、友善、具體）"
+  "profile": "ä¸æ®µ 2-3 å¥è©±çå®¢äººç«åï¼æ¨æ¸¬å¹´é½¡ãèº«ä»½ãåæ©ï¼",
+  "preferences": ["åå¥½ 1", "åå¥½ 2", "åå¥½ 3"],
+  "tags": ["ç­æ¨ç±¤1", "ç­æ¨ç±¤2", "ç­æ¨ç±¤3"],
+  "nextContact": "å»ºè­°ä¸æ¬¡è¯çµ¡ææ©èè¨æ¯ä¸»é¡",
+  "suggestedMessage": "ä¸æ®µ 50-80 å­å¯ä»¥ç´æ¥ç¼çµ¦éä½å®¢äººç LINE è¨æ¯ï¼ç¹ä¸­ãååãå·é«ï¼"
 }
 
-不要加任何說明，只回純 JSON。`;
-    const userPrompt = `客人名稱：${c.userName}\n訊息數：${c.frequency}\n最近一次對話：${c.recencyDays} 天前\n意圖分佈：${JSON.stringify(c.intents)}\n分組：${c.segment}\n\n對話紀錄（最多 30 則，舊→新）：\n${history}`;
+ä¸è¦å ä»»ä½èªªæï¼åªåç´ JSONã`;
+    const userPrompt = `å®¢äººåç¨±ï¼${c.userName}\nè¨æ¯æ¸ï¼${c.frequency}\næè¿ä¸æ¬¡å°è©±ï¼${c.recencyDays} å¤©å\næååä½ï¼${JSON.stringify(c.intents)}\nåçµï¼${c.segment}\n\nå°è©±ç´éï¼æå¤ 30 åï¼èâæ°ï¼ï¼\n${history}`;
 
     const msg = await anthropic.messages.create({
       model: DIRECTOR_MODEL,
@@ -1662,9 +1694,9 @@ app.post("/api/customers/:userId/analyze", async (req, res) => {
     const raw = (msg.content || []).map(x => x.text || "").join("");
     const jsonMatch = raw.match(/\{[\s\S]*\}/);
     const parsed = jsonMatch ? JSON.parse(jsonMatch[0]) : null;
-    if (!parsed) return res.status(500).json({ error: "AI 回覆無法解析", raw: raw.slice(0,300) });
+    if (!parsed) return res.status(500).json({ error: "AI åè¦ç¡æ³è§£æ", raw: raw.slice(0,300) });
 
-    // 存 profile
+    // å­ profile
     const profiles = customers.loadCustomerProfiles(DATA_DIR);
     profiles[c.userId] = {
       aiProfile: parsed.profile,
@@ -1683,7 +1715,7 @@ app.post("/api/customers/:userId/analyze", async (req, res) => {
 
 // POST /api/customers/segment-broadcast
 // body: { segment: "vip"|"active"|"new"|"atrisk", brief: "..." } 
-// NOVA 寫給該組的客製廣播草稿
+// NOVA å¯«çµ¦è©²çµçå®¢è£½å»£æ­èç¨¿
 app.post("/api/customers/segment-broadcast", async (req, res) => {
   if (!anthropic) return res.status(500).json({ error: "ANTHROPIC_API_KEY not set" });
   const { segment = "active", brief = "" } = req.body || {};
@@ -1701,8 +1733,8 @@ app.post("/api/customers/segment-broadcast", async (req, res) => {
     });
 
     const emp = EMPLOYEES["nova"];
-    const systemPrompt = (emp?.systemPrompt || "你是 NOVA，ofz beauty academy 的社群小編。") + `\n\n本次任務：針對 ${segMeta.label} 這組客人（${group.length} 人，特色：${segMeta.desc}）寫 3 個 LINE 廣播草稿。每個風格不同。`;
-    const userPrompt = `客人組別：${segMeta.label}（${group.length} 人）\n這組客人常見意圖：${JSON.stringify(sampleIntents)}\n常見標籤：${sampleTags.join("、") || "（尚未分析）"}\n\n本次 brief：${brief || "（無特別主題，請自己發揮）"}\n\n請輸出 JSON 陣列，3 個元素，每個是 { "style": "版本名", "text": "訊息內容" }。只回 JSON。`;
+    const systemPrompt = (emp?.systemPrompt || "ä½ æ¯ NOVAï¼ofz beauty academy çç¤¾ç¾¤å°ç·¨ã") + `\n\næ¬æ¬¡ä»»åï¼éå° ${segMeta.label} éçµå®¢äººï¼${group.length} äººï¼ç¹è²ï¼${segMeta.desc}ï¼å¯« 3 å LINE å»£æ­èç¨¿ãæ¯åé¢¨æ ¼ä¸åã`;
+    const userPrompt = `å®¢äººçµå¥ï¼${segMeta.label}ï¼${group.length} äººï¼\néçµå®¢äººå¸¸è¦æåï¼${JSON.stringify(sampleIntents)}\nå¸¸è¦æ¨ç±¤ï¼${sampleTags.join("ã") || "ï¼å°æªåæï¼"}\n\næ¬æ¬¡ briefï¼${brief || "ï¼ç¡ç¹å¥ä¸»é¡ï¼è«èªå·±ç¼æ®ï¼"}\n\nè«è¼¸åº JSON é£åï¼3 ååç´ ï¼æ¯åæ¯ { "style": "çæ¬å", "text": "è¨æ¯å§å®¹" }ãåªå JSONã`;
 
     const msg = await anthropic.messages.create({
       model: DIRECTOR_MODEL,
@@ -1721,7 +1753,7 @@ app.post("/api/customers/segment-broadcast", async (req, res) => {
 
 // POST /api/customers/segment-push
 // body: { segment, text, imageUrl?, linkUrl?, linkLabel?, confirmed:true }
-// 對該組所有客人 push（不是 broadcast 給全部好友）
+// å°è©²çµææå®¢äºº pushï¼ä¸æ¯ broadcast çµ¦å¨é¨å¥½åï¼
 app.post("/api/customers/segment-push", async (req, res) => {
   const { segment = "active", text, imageUrl, linkUrl, linkLabel, confirmed } = req.body || {};
   if (confirmed !== true) return res.status(400).json({ error: "must include confirmed:true" });
@@ -1730,7 +1762,7 @@ app.post("/api/customers/segment-push", async (req, res) => {
     const list = customers.aggregateCustomers(msgs, customers.loadCustomerProfiles(DATA_DIR));
     const groups = customers.groupBySegment(list);
     const group = groups[segment] || [];
-    if (group.length === 0) return res.status(400).json({ error: "該組沒有客人" });
+    if (group.length === 0) return res.status(400).json({ error: "è©²çµæ²æå®¢äºº" });
 
     const messages = line.buildMessages({ text, imageUrl, linkUrl, linkLabel });
     if (messages.length === 0) return res.status(400).json({ error: "no messages to send" });
@@ -1753,23 +1785,23 @@ app.post("/api/customers/segment-push", async (req, res) => {
 });
 
 // POST /api/line/generate-broadcast  body: {brief, count}
-// 讓 NOVA 寫 N 個廣播越稿。
+// è® NOVA å¯« N åå»£æ­è¶ç¨¿ã
 app.post("/api/line/generate-broadcast", async (req, res) => {
   const { brief, count = 3 } = req.body || {};
   if (!brief || brief.trim().length < 5) return res.status(400).json({ error: "brief too short" });
   if (!anthropic) return res.status(500).json({ error: "ANTHROPIC_API_KEY not set" });
 
   const emp = EMPLOYEES["nova"];
-  const userPrompt = `針對下面 brief，寫 ${count} 個 LINE 官方帳號廣播訊息草稿，每個風格不同。
+  const userPrompt = `éå°ä¸é¢ briefï¼å¯« ${count} å LINE å®æ¹å¸³èå»£æ­è¨æ¯èç¨¿ï¼æ¯åé¢¨æ ¼ä¸åã
 
-Brief：${brief}
+Briefï¼${brief}
 
-要求：
-- LINE 廣播會發畣全部好友，語氣親近但保持精品感
-- 每則 120-200 字
-- 可加 emoji 但節制（1-3 個）
-- 回 JSON 陣列：[{"style":"...","text":"..."}, ...]
-- 不要 markdown，直接回 JSON`;
+è¦æ±ï¼
+- LINE å»£æ­æç¼ç£å¨é¨å¥½åï¼èªæ°£è¦ªè¿ä½ä¿æç²¾åæ
+- æ¯å 120-200 å­
+- å¯å  emoji ä½ç¯å¶ï¼1-3 åï¼
+- å JSON é£åï¼[{"style":"...","text":"..."}, ...]
+- ä¸è¦ markdownï¼ç´æ¥å JSON`;
   try {
     const msg = await anthropic.messages.create({
       model: MODEL,
@@ -1788,7 +1820,7 @@ Brief：${brief}
 
 
 // ============================================================
-// /api/alerts/* — 主動推播 API
+// /api/alerts/* â ä¸»åæ¨æ­ API
 // ============================================================
 app.get("/api/alerts/admin", (req, res) => {
   const a = alerts.loadAdmin(DATA_DIR);
@@ -1820,7 +1852,7 @@ app.post("/api/alerts/test-event", async (req, res) => {
 app.get("/healthz", (req, res) => res.json({ ok: true, model: MODEL, employees: Object.keys(EMPLOYEES).length }));
 
 app.listen(PORT, () => {
-  console.log(`\n🥐 ofz beauty academy · Virtual Office v2`);
+  console.log(`\nð¥ ofz beauty academy Â· Virtual Office v2`);
   console.log(`   Listening on http://localhost:${PORT}`);
   console.log(`   Model: ${MODEL} | Director: ${DIRECTOR_MODEL}`);
   console.log(`   Employees: ${Object.keys(EMPLOYEES).length}`);
