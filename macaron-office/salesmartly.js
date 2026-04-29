@@ -42,19 +42,10 @@ async function apiCall(endpoint, params = {}, method = 'POST') {
   return json;
 }
 
-const CONV_ENDPOINTS = [
-  '/v2/chat/list', '/v2/chats/list', '/v2/conversations/list',
-  '/openapi/v2/chat/list', '/openapi/v2/conversation/list',
-  '/v1/conversations', '/v1/conversation/list', '/openapi/conversation/list',
-  '/api/v2/chats', '/api/conversations',
-];
-const MSG_ENDPOINTS = [
-  '/v2/message/list', '/v2/messages/list',
-  '/openapi/v2/message/list',
-  '/v1/messages', '/v1/message/list', '/openapi/message/list',
-];
+const CONV_ENDPOINTS = ['/api/v2/get-session-list'];
+const MSG_ENDPOINTS = ['/api/v2/get-message-list'];
 
-async function tryEndpoints(endpoints, params, methods = ['POST', 'GET']) {
+async function tryEndpoints(endpoints, params, methods = ['GET', 'POST']) {
   const attempts = [];
   for (const ep of endpoints) {
     for (const method of methods) {
