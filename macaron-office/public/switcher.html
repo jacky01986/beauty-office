@@ -1,366 +1,137 @@
 <!DOCTYPE html>
 <html lang="zh-TW">
 <head>
-<meta charset="UTF-8" />
-<meta name="viewport" content="width=device-width, initial-scale=1" />
-<title>ofz · Meta 帳戶切換器</title>
+<meta charset="utf-8">
+<title>Meta 多帳戶切換器 — Macaron de Luxe</title>
+<meta name="viewport" content="width=device-width,initial-scale=1">
 <style>
-  :root {
-    --bg: #0f1115;
-    --card: #1a1d24;
-    --card-2: #232730;
-    --border: #2a2f3a;
-    --text: #e8eaed;
-    --muted: #8b919e;
-    --accent: #4ade80;
-    --accent-bg: rgba(74, 222, 128, 0.12);
-    --warn: #fbbf24;
-    --danger: #f87171;
-  }
-  * { box-sizing: border-box; }
-  body {
-    margin: 0;
-    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang TC", "Microsoft JhengHei", sans-serif;
-    background: var(--bg);
-    color: var(--text);
-    padding: 24px 16px 80px;
-    min-height: 100vh;
-  }
-  .container { max-width: 720px; margin: 0 auto; }
-  header h1 {
-    margin: 0 0 4px;
-    font-size: 22px;
-    font-weight: 700;
-  }
-  header p {
-    margin: 0 0 24px;
-    color: var(--muted);
-    font-size: 14px;
-  }
-  .back {
-    display: inline-block;
-    color: var(--muted);
-    text-decoration: none;
-    font-size: 13px;
-    margin-bottom: 16px;
-  }
-  .back:hover { color: var(--text); }
-  section {
-    background: var(--card);
-    border: 1px solid var(--border);
-    border-radius: 12px;
-    padding: 18px;
-    margin-bottom: 18px;
-  }
-  section h2 {
-    margin: 0 0 4px;
-    font-size: 16px;
-    font-weight: 600;
-    display: flex;
-    align-items: center;
-    gap: 8px;
-  }
-  section .sub {
-    margin: 0 0 14px;
-    color: var(--muted);
-    font-size: 12px;
-  }
-  .current-bar {
-    background: var(--accent-bg);
-    border: 1px solid var(--accent);
-    border-radius: 8px;
-    padding: 10px 12px;
-    margin-bottom: 14px;
-    font-size: 13px;
-    color: var(--accent);
-  }
-  .current-bar b { color: var(--text); font-weight: 600; }
-  .item {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    padding: 12px 14px;
-    background: var(--card-2);
-    border: 1px solid var(--border);
-    border-radius: 8px;
-    margin-bottom: 8px;
-    cursor: pointer;
-    transition: all 0.15s;
-  }
-  .item:hover {
-    border-color: var(--accent);
-    background: rgba(74, 222, 128, 0.05);
-  }
-  .item.active {
-    border-color: var(--accent);
-    background: var(--accent-bg);
-  }
-  .item .info { flex: 1; min-width: 0; }
-  .item .name {
-    font-weight: 600;
-    font-size: 14px;
-    margin-bottom: 2px;
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
-  }
-  .item .meta {
-    font-size: 11px;
-    color: var(--muted);
-    font-family: ui-monospace, "SF Mono", Menlo, monospace;
-  }
-  .item .meta .biz { color: #818cf8; margin-left: 8px; }
-  .item .badge {
-    flex-shrink: 0;
-    margin-left: 12px;
-    padding: 4px 10px;
-    border-radius: 12px;
-    font-size: 11px;
-    font-weight: 600;
-  }
-  .badge.active {
-    background: var(--accent);
-    color: #0f1115;
-  }
-  .badge.inactive {
-    background: rgba(248, 113, 113, 0.15);
-    color: var(--danger);
-    border: 1px solid var(--danger);
-  }
-  .badge.disabled {
-    background: rgba(139, 145, 158, 0.15);
-    color: var(--muted);
-    border: 1px solid var(--muted);
-  }
-  .empty {
-    text-align: center;
-    color: var(--muted);
-    padding: 30px 16px;
-    font-size: 13px;
-  }
-  .toast {
-    position: fixed;
-    bottom: 24px;
-    left: 50%;
-    transform: translateX(-50%);
-    background: var(--accent);
-    color: #0f1115;
-    padding: 12px 20px;
-    border-radius: 8px;
-    font-weight: 600;
-    box-shadow: 0 8px 24px rgba(0,0,0,0.4);
-    opacity: 0;
-    transition: opacity 0.3s, transform 0.3s;
-    pointer-events: none;
-    z-index: 100;
-  }
-  .toast.show { opacity: 1; transform: translateX(-50%) translateY(-8px); }
-  .toast.error { background: var(--danger); color: #fff; }
-  .loading {
-    text-align: center;
-    color: var(--muted);
-    padding: 40px 0;
-  }
-  .actions {
-    display: flex;
-    gap: 8px;
-    margin-top: 12px;
-  }
-  button.btn {
-    background: var(--card-2);
-    border: 1px solid var(--border);
-    color: var(--text);
-    padding: 8px 14px;
-    border-radius: 6px;
-    cursor: pointer;
-    font-size: 13px;
-    font-family: inherit;
-  }
-  button.btn:hover { border-color: var(--accent); color: var(--accent); }
-  button.btn.danger:hover { border-color: var(--danger); color: var(--danger); }
+  body { font-family: -apple-system, "PingFang TC", "Microsoft JhengHei", sans-serif; background: #1a1a1a; color: #f0e5d6; margin: 0; padding: 24px; }
+  h1 { font-size: 22px; margin: 0 0 8px; color: #f5d49e; }
+  .subtitle { color: #aaa; margin-bottom: 24px; font-size: 14px; }
+  .card { background: #2a2520; border: 1px solid #4a3a2a; border-radius: 12px; padding: 16px 20px; margin-bottom: 16px; }
+  .card h2 { font-size: 16px; margin: 0 0 12px; color: #f5d49e; }
+  .row { display: flex; align-items: center; padding: 10px 12px; border: 1px solid #3a3025; border-radius: 8px; margin-bottom: 8px; cursor: pointer; transition: 0.15s; }
+  .row:hover { background: #3a302a; border-color: #8a7050; }
+  .row.active { background: #3a4a35; border-color: #4CAF50; }
+  .row.disabled { opacity: 0.45; cursor: not-allowed; }
+  .row .name { flex: 1; font-weight: 500; }
+  .row .id { color: #888; font-size: 12px; margin-left: 8px; font-family: monospace; }
+  .row .ig { color: #E1306C; font-size: 12px; margin-left: 12px; font-weight: 600; }
+  .badge-active { background: #4CAF50; color: white; padding: 2px 8px; border-radius: 10px; font-size: 11px; margin-left: 8px; }
+  .badge-disabled { background: #777; color: white; padding: 2px 8px; border-radius: 10px; font-size: 11px; margin-left: 8px; }
+  .err { color: #ff8888; padding: 8px 12px; background: #3a1f1f; border-radius: 6px; font-size: 13px; }
+  .loading { color: #888; padding: 12px; }
+  .toolbar { margin-top: 16px; }
+  .btn { background: #f5d49e; color: #2a1a10; border: none; padding: 10px 18px; border-radius: 6px; font-size: 14px; cursor: pointer; font-weight: 600; }
+  .btn:hover { background: #e8c280; }
+  .btn-secondary { background: #555; color: white; }
+  .status-bar { background: #2a2520; border: 1px solid #4a3a2a; padding: 10px 14px; border-radius: 8px; margin-bottom: 20px; font-size: 13px; color: #d0c0a8; }
 </style>
 </head>
 <body>
-<div class="container">
-  <a href="/" class="back">← 回辦公室</a>
-  <header>
-    <h1>🔄 Meta 帳戶切換器</h1>
-    <p>切換 VICTOR 看的廣告帳戶 / 粉絲頁 / IG 商業帳號</p>
-  </header>
-
-  <section>
-    <h2>📊 廣告帳戶 (Ad Accounts)</h2>
-    <p class="sub">點擊任一帳戶切換成 VICTOR 目前監看的廣告數據來源</p>
-    <div id="current-ad-bar" class="current-bar" style="display:none;"></div>
-    <div id="ad-list" class="loading">載入中…</div>
-    <div class="actions">
-      <button class="btn" onclick="loadAssets()">🔄 重新整理</button>
-      <button class="btn danger" onclick="clearOverride('adAccountId')">↺ 還原預設</button>
-    </div>
-  </section>
-
-  <section>
-    <h2>📘 粉絲頁 (Facebook Pages)</h2>
-    <p class="sub">目前 Meta Token 沒有粉絲頁存取權限 — 如需切換，請至 Meta Business Settings 加授權</p>
-    <div id="current-page-bar" class="current-bar" style="display:none;"></div>
-    <div id="page-list" class="loading">載入中…</div>
-  </section>
-
-  <section>
-    <h2>📸 Instagram 商業帳號</h2>
-    <p class="sub">IG 帳號跟著粉絲頁走 — 切換粉絲頁會自動帶 IG</p>
-    <div id="current-ig-bar" class="current-bar" style="display:none;"></div>
-    <div id="ig-list" class="loading">載入中…</div>
-  </section>
+<h1>🔄 Meta 多帳戶切換器</h1>
+<p class="subtitle">點選要切換到的 FB 粉絲頁（自動連動 IG）或廣告帳戶。VICTOR 從下一秒看新數據。</p>
+<div id="status" class="status-bar">載入中...</div>
+<div class="card">
+  <h2>📘 FB 粉絲頁（選了會自動連動 IG）</h2>
+  <div id="pages"><div class="loading">載入中...</div></div>
 </div>
-
-<div id="toast" class="toast"></div>
-
+<div class="card">
+  <h2>📊 廣告帳戶</h2>
+  <div id="ads"><div class="loading">載入中...</div></div>
+</div>
+<div class="toolbar">
+  <button class="btn btn-secondary" onclick="clearOverride()">清除覆寫（還原 Render env）</button>
+  <a href="/" style="margin-left: 12px; color: #f5d49e;">← 回主辦公室</a>
+</div>
 <script>
-let CURRENT = null;
-
-function showToast(msg, isError) {
-  const t = document.getElementById('toast');
-  t.textContent = msg;
-  t.classList.toggle('error', !!isError);
-  t.classList.add('show');
-  setTimeout(() => t.classList.remove('show'), 2400);
-}
-
-function escapeHtml(s) {
-  return String(s == null ? '' : s).replace(/[&<>"']/g, c => ({
-    '&':'&amp;', '<':'&lt;', '>':'&gt;', '"':'&quot;', "'":'&#39;'
-  }[c]));
-}
-
-function renderAdItem(a, currentId) {
-  const isActive = a.accountId === currentId;
-  const isEnabled = a.status === 1;
-  const statusBadge = isActive
-    ? '<span class="badge active">✓ 使用中</span>'
-    : (isEnabled
-        ? '<span class="badge inactive">未啟用</span>'
-        : '<span class="badge disabled">停用</span>');
-  const biz = a.businessName ? `<span class="biz">· ${escapeHtml(a.businessName)}</span>` : '';
-  return `
-    <div class="item ${isActive ? 'active' : ''}" onclick="switchTo('adAccountId', '${escapeHtml(a.accountId)}', '${escapeHtml(a.name)}')">
-      <div class="info">
-        <div class="name">${escapeHtml(a.name) || '(未命名)'}</div>
-        <div class="meta">act_${escapeHtml(a.accountId)} · ${escapeHtml(a.currency || 'TWD')}${biz}</div>
-      </div>
-      ${statusBadge}
-    </div>`;
-}
-
+let assets = null;
 async function loadAssets() {
-  document.getElementById('ad-list').className = 'loading';
-  document.getElementById('ad-list').textContent = '載入中…';
   try {
-    const r = await fetch('/api/meta/assets');
-    const data = await r.json();
-    CURRENT = data.current || {};
-
-    // Ad accounts
-    const adList = document.getElementById('ad-list');
-    const adBar = document.getElementById('current-ad-bar');
-    const ads = data.adAccounts || [];
-    if (ads.length === 0) {
-      adList.className = 'empty';
-      adList.textContent = '目前 Token 沒有任何廣告帳戶';
-      adBar.style.display = 'none';
-    } else {
-      const currentAd = ads.find(a => a.accountId === CURRENT.adAccountId);
-      adBar.style.display = '';
-      adBar.innerHTML = `目前使用中：<b>${escapeHtml(currentAd?.name || CURRENT.adAccountId || '(未設定)')}</b>` +
-        (CURRENT.override?.adAccountId ? ' <span style="color:var(--warn);">(override)</span>' : '');
-      adList.className = '';
-      // Sort: active first, then enabled, then disabled
-      const sorted = ads.slice().sort((a, b) => {
-        if (a.accountId === CURRENT.adAccountId) return -1;
-        if (b.accountId === CURRENT.adAccountId) return 1;
-        return (b.status || 0) - (a.status || 0);
-      });
-      adList.innerHTML = sorted.map(a => renderAdItem(a, CURRENT.adAccountId)).join('');
-    }
-
-    // Pages
-    const pageList = document.getElementById('page-list');
-    const pageBar = document.getElementById('current-page-bar');
-    const pages = data.pages || [];
-    if (pages.length === 0) {
-      pageList.className = 'empty';
-      pageList.innerHTML = `目前粉絲頁清單為空<br><span style="font-size:11px;">目前綁定的 Page ID: <code>${escapeHtml(CURRENT.pageId || '(未設定)')}</code></span>`;
-      pageBar.style.display = 'none';
-    } else {
-      pageBar.style.display = '';
-      pageBar.innerHTML = `目前使用中：<b>${escapeHtml(CURRENT.pageId)}</b>`;
-      pageList.className = '';
-      pageList.innerHTML = pages.map(p => `
-        <div class="item ${p.id === CURRENT.pageId ? 'active' : ''}" onclick="switchTo('pageId', '${escapeHtml(p.id)}', '${escapeHtml(p.name)}')">
-          <div class="info">
-            <div class="name">${escapeHtml(p.name)}</div>
-            <div class="meta">${escapeHtml(p.id)}</div>
-          </div>
-          ${p.id === CURRENT.pageId ? '<span class="badge active">✓ 使用中</span>' : ''}
-        </div>`).join('');
-    }
-
-    // IG
-    const igList = document.getElementById('ig-list');
-    const igBar = document.getElementById('current-ig-bar');
-    igList.className = 'empty';
-    igList.innerHTML = CURRENT.igId
-      ? `目前綁定 IG ID: <code>${escapeHtml(CURRENT.igId)}</code><br><span style="font-size:11px;">切換粉絲頁時會自動更新</span>`
-      : '尚未綁定 IG 商業帳號';
-    igBar.style.display = 'none';
-
+    const res = await fetch('/api/meta/assets');
+    if (!res.ok) throw new Error('HTTP ' + res.status);
+    assets = await res.json();
+    render();
   } catch (e) {
-    document.getElementById('ad-list').className = 'empty';
-    document.getElementById('ad-list').textContent = '載入失敗：' + e.message;
-    showToast('載入失敗：' + e.message, true);
+    document.getElementById('status').innerHTML = '<span class="err">無法載入：' + e.message + '</span>';
   }
 }
-
-async function switchTo(field, value, label) {
-  if (!confirm(`確定要切換 ${field} 為「${label}」？\n\nVICTOR 從下一次請求開始就會看新的數據。`)) return;
-  try {
-    const r = await fetch('/api/meta/switch', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ [field]: value }),
+function escapeHtml(s) { return String(s || '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":"&#39;"}[c])); }
+function render() {
+  const cur = assets.current || {};
+  const ov = assets.override || {};
+  let s = '目前使用中：FB Page = ' + (cur.pageId || '未設') + ' ／ IG = ' + (cur.igId || '未設') + ' ／ Ad = ' + (cur.adAccountId || '未設');
+  if (Object.keys(ov).length > 0) s += ' （已套用覆寫）';
+  document.getElementById('status').textContent = s;
+  const pagesEl = document.getElementById('pages');
+  const pages = assets.pages || [];
+  if (pages.length === 0) {
+    pagesEl.innerHTML = '<div class="loading">沒有粉絲頁可切換 — 把 System User 加到 BM 的粉絲頁資產</div>';
+  } else {
+    pagesEl.innerHTML = '';
+    pages.forEach(p => {
+      const isActive = p.pageId === cur.pageId;
+      const div = document.createElement('div');
+      div.className = 'row' + (isActive ? ' active' : '');
+      div.innerHTML = '<span class="name">' + escapeHtml(p.name) + '</span>' +
+        '<span class="id">FB:' + escapeHtml(p.pageId) + '</span>' +
+        (p.igId ? '<span class="ig">📷 IG @' + escapeHtml(p.igUsername || '') + '</span>' : '<span class="ig" style="color:#666">無 IG</span>') +
+        (isActive ? '<span class="badge-active">使用中</span>' : '');
+      div.onclick = () => switchPage(p);
+      pagesEl.appendChild(div);
     });
-    const data = await r.json();
-    if (data.ok || r.ok) {
-      showToast(`✅ 已切換到「${label}」`);
-      setTimeout(loadAssets, 600);
-    } else {
-      showToast('切換失敗：' + (data.error || data.reason || '未知錯誤'), true);
-    }
-  } catch (e) {
-    showToast('切換失敗：' + e.message, true);
   }
-}
-
-async function clearOverride(field) {
-  if (!confirm(`確定要還原 ${field} 為預設值？`)) return;
-  try {
-    const r = await fetch('/api/meta/switch', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ [field]: null }),
+  const adsEl = document.getElementById('ads');
+  const ads = assets.ad_accounts || assets.adAccounts || [];
+  if (ads.length === 0) {
+    adsEl.innerHTML = '<div class="loading">沒有廣告帳戶</div>';
+  } else {
+    adsEl.innerHTML = '';
+    ads.forEach(a => {
+      const aid = a.adAccountId || a.id;
+      const isActive = aid === cur.adAccountId || aid === ('act_' + cur.adAccountId) || aid?.replace('act_','') === cur.adAccountId;
+      const isDisabled = a.status === 'disabled';
+      const div = document.createElement('div');
+      div.className = 'row' + (isActive ? ' active' : '') + (isDisabled ? ' disabled' : '');
+      div.innerHTML = '<span class="name">' + escapeHtml(a.name) + '</span>' +
+        '<span class="id">' + escapeHtml(aid) + '</span>' +
+        '<span class="ig" style="color:#aaa">' + escapeHtml(a.currency || '') + '</span>' +
+        (isActive ? '<span class="badge-active">使用中</span>' : '') +
+        (isDisabled ? '<span class="badge-disabled">停用</span>' : '');
+      if (!isDisabled) div.onclick = () => switchAd(a);
+      adsEl.appendChild(div);
     });
-    const data = await r.json();
-    if (data.ok || r.ok) {
-      showToast('✅ 已還原預設');
-      setTimeout(loadAssets, 600);
-    } else {
-      showToast('還原失敗', true);
-    }
-  } catch (e) {
-    showToast('還原失敗：' + e.message, true);
   }
 }
-
+async function switchPage(p) {
+  let msg = '切換到「' + p.name + '」(FB ' + p.pageId + ')';
+  if (p.igId) msg += '\n會同時切到 IG @' + (p.igUsername || p.igId);
+  msg += '\n\n確認嗎？';
+  if (!confirm(msg)) return;
+  await postSwitch({ pageId: p.pageId, igId: p.igId });
+}
+async function switchAd(a) {
+  if (!confirm('切換廣告帳戶到「' + a.name + '」？')) return;
+  await postSwitch({ adAccountId: a.adAccountId || a.id });
+}
+async function postSwitch(payload) {
+  try {
+    const res = await fetch('/api/meta/switch', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) });
+    if (!res.ok) throw new Error('HTTP ' + res.status);
+    alert('✓ 已切換');
+    loadAssets();
+  } catch (e) {
+    alert('切換失敗：' + e.message);
+  }
+}
+async function clearOverride() {
+  if (!confirm('清除覆寫，還原成 Render 環境變數？')) return;
+  try {
+    await fetch('/api/meta/switch?clear=1', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: '{}' });
+    alert('✓ 已清除');
+    loadAssets();
+  } catch (e) { alert('清除失敗：' + e.message); }
+}
 loadAssets();
 </script>
 </body>
