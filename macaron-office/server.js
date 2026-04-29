@@ -21,6 +21,8 @@ const line = require("./line");
 const google = require("./google");
 const customers = require("./customers");
 const alerts = require("./alerts");
+const metaOverride = require("./meta-override");
+metaOverride.applyOnStartup();
 const toolDefs = require("./tools");
 
 // In-memory proposal storage (保留在記憶體就好，重啟失效 OK)
@@ -228,8 +230,13 @@ app.get("/api/meta/status", async (req, res) => {
 
 // /api/meta/assets — 列出 user 所有 FB Pages / IG Business / Ad Accounts（for switcher）
 app.get("/api/meta/assets", async (req, res) => {
-  try {
-    if (!meta.tokenOk()) return res.status(400).json({ error: "META_ACCESS_TOKEN not set" });
+    try {
+      const result = await metaOverride.listAssets();
+      res.json(result);
+    } catch (e) {
+      res.status(500).json({ error: e.message });
+    }
+  });
     const token = process.env.META_ACCESS_TOKEN;
     const GRAPH = "https://graph.facebook.com/v21.0";
     // Pages (with linked IG)
