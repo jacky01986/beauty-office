@@ -12,6 +12,7 @@
 
 const fs = require("fs");
 const path = require("path");
+const salesmartly = (() => { try { return require("./salesmartly"); } catch { return null; } })();
 
 const ADMIN_FILE_NAME = "admin.json";
 
@@ -123,7 +124,24 @@ async function dailyBriefing({ anthropic, model, employees, meta, customers, dat
       atrisk: groups.atrisk.length,
     };
   } catch (e) {
-    snapshot.customerSegments = { error: e.message };
+    snapshot.customerSegments = { error: e.message }
+
+  // 客服洞察（SaleSmartly）— 過去 7 天客人最常問什麼
+  try {
+    if (salesmartly && typeof salesmartly.getCustomerInsights === 'function') {
+      const ins = await salesmartly.getCustomerInsights({ days: 7 });
+      if (ins && ins.ok) {
+        snapshot.customerInsights = {
+          conversation_count: ins.conversation_count,
+          message_count: ins.message_count,
+          topics: ins.topics,
+          summary: ins.summary,
+        };
+      }
+    }
+  } catch (e) {
+    console.error('[alerts] salesmartly insights failed:', e.message);
+  };
   }
 
   const taipeiNow = new Date(new Date().toLocaleString("en-US", { timeZone: "Asia/Taipei" }));
