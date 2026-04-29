@@ -1,4 +1,4 @@
-// salesmartly.js — SaleSmartly API client + customer insight extractor
+// salesmartly.js â SaleSmartly API client + customer insight extractor
 // env: SALESMARTLY_TOKEN, SALESMARTLY_PROJECT_ID, SALESMARTLY_BASE_URL (optional)
 // V2 endpoints based on apifox doc category structure
 
@@ -42,19 +42,10 @@ async function apiCall(endpoint, params = {}, method = 'POST') {
   return json;
 }
 
-const CONV_ENDPOINTS = [
-  '/v2/chat/list', '/v2/chats/list', '/v2/conversations/list',
-  '/openapi/v2/chat/list', '/openapi/v2/conversation/list',
-  '/v1/conversations', '/v1/conversation/list', '/openapi/conversation/list',
-  '/api/v2/chats', '/api/conversations',
-];
-const MSG_ENDPOINTS = [
-  '/v2/message/list', '/v2/messages/list',
-  '/openapi/v2/message/list',
-  '/v1/messages', '/v1/message/list', '/openapi/message/list',
-];
+const CONV_ENDPOINTS = ['/api/v2/get-session-list'];
+const MSG_ENDPOINTS = ['/api/v2/get-message-list'];
 
-async function tryEndpoints(endpoints, params, methods = ['POST', 'GET']) {
+async function tryEndpoints(endpoints, params, methods = ['GET', 'POST']) {
   const attempts = [];
   for (const ep of endpoints) {
     for (const method of methods) {
@@ -92,14 +83,14 @@ async function listMessages(chat_user_id, { page = 1, page_size = 50 } = {}) {
 }
 
 const BUCKETS = {
-  'price': { rx: /價錢|學費|多少錢|費用|報價|價格/, label: '價格 / 學費' },
-  'content': { rx: /課程|教什麼|內容|大綱|學什麼/, label: '課程內容' },
-  'time': { rx: /時間|什麼時候|開課|何時/, label: '上課時間' },
-  'pay': { rx: /怎麼報名|付款|匯款|刷卡|分期/, label: '報名 / 付款' },
-  'cert': { rx: /證照|證書|執照|結業/, label: '證照 / 結業' },
-  'refund': { rx: /退費|取消|退款/, label: '退費 / 取消' },
-  'teacher': { rx: /老師|師資|誰教/, label: '師資 / 老師' },
-  'place': { rx: /地點|教室|地址|哪裡/, label: '地點 / 教室' },
+  'price': { rx: /å¹é¢|å­¸è²»|å¤å°é¢|è²»ç¨|å ±å¹|å¹æ ¼/, label: 'å¹æ ¼ / å­¸è²»' },
+  'content': { rx: /èª²ç¨|æä»éº¼|å§å®¹|å¤§ç¶±|å­¸ä»éº¼/, label: 'èª²ç¨å§å®¹' },
+  'time': { rx: /æé|ä»éº¼æå|éèª²|ä½æ/, label: 'ä¸èª²æé' },
+  'pay': { rx: /æéº¼å ±å|ä»æ¬¾|å¯æ¬¾|å·å¡|åæ/, label: 'å ±å / ä»æ¬¾' },
+  'cert': { rx: /è­ç§|è­æ¸|å·ç§|çµæ¥­/, label: 'è­ç§ / çµæ¥­' },
+  'refund': { rx: /éè²»|åæ¶|éæ¬¾/, label: 'éè²» / åæ¶' },
+  'teacher': { rx: /èå¸«|å¸«è³|èª°æ/, label: 'å¸«è³ / èå¸«' },
+  'place': { rx: /å°é»|æå®¤|å°å|åªè£¡/, label: 'å°é» / æå®¤' },
 };
 
 function extractTopQuestions(messages) {
@@ -152,12 +143,12 @@ async function getCustomerInsights({ days = 7 } = {}) {
 }
 
 function formatBriefingSection(topics, convCount, msgCount, days) {
-  if (!topics || topics.length === 0) return '客服（過去 ' + days + ' 天）：無對話資料';
-  const lines = ['📞 本週客服洞察（過去 ' + days + ' 天，' + convCount + ' 場對話 / ' + msgCount + ' 則客人訊息）'];
-  topics.slice(0, 5).forEach((t, i) => { lines.push((i+1) + '. ' + t.topic + '：' + t.count + ' 次'); });
+  if (!topics || topics.length === 0) return 'å®¢æï¼éå» ' + days + ' å¤©ï¼ï¼ç¡å°è©±è³æ';
+  const lines = ['ð æ¬é±å®¢ææ´å¯ï¼éå» ' + days + ' å¤©ï¼' + convCount + ' å ´å°è©± / ' + msgCount + ' åå®¢äººè¨æ¯ï¼'];
+  topics.slice(0, 5).forEach((t, i) => { lines.push((i+1) + '. ' + t.topic + 'ï¼' + t.count + ' æ¬¡'); });
   if (topics[0] && topics[0].count >= 5) {
     lines.push('');
-    lines.push('💡 建議：「' + topics[0].topic + '」這週被問 ' + topics[0].count + ' 次 → CAMILLE 寫一篇 FAQ');
+    lines.push('ð¡ å»ºè­°ï¼ã' + topics[0].topic + 'ãéé±è¢«å ' + topics[0].count + ' æ¬¡ â CAMILLE å¯«ä¸ç¯ FAQ');
   }
   return lines.join('\n');
 }
