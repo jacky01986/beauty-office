@@ -1,13 +1,13 @@
 // ============================================================
-// ofz beauty academy · 主動推播模組 (alerts) v3
+// ofz beauty academy Â· ä¸»åæ¨æ­æ¨¡çµ (alerts) v3
 // ------------------------------------------------------------
-// 功能：
-// 1. dailyBriefing()  — 每日 09:00 由 VICTOR 統合產出今日簡報
-//                       依星期幾智慧切換：一(戰略) / 三(中週) / 日(回顧)
-//                       每天都加「等你拍板」決策清單
-// 2. eventMonitor()   — 每 30 分鐘檢查 ROAS / 燒預算
-// 3. pushToAdmin()    — 把訊息推到 admin 的 LINE
-// 4. registerAdminFromLine() — admin 在 LINE 對 Bot 傳 "/admin" 註冊
+// åè½ï¼
+// 1. dailyBriefing()  â æ¯æ¥ 09:00 ç± VICTOR çµ±åç¢åºä»æ¥ç°¡å ±
+//                       ä¾ææå¹¾æºæ§åæï¼ä¸(æ°ç¥) / ä¸(ä¸­é±) / æ¥(åé¡§)
+//                       æ¯å¤©é½å ãç­ä½ ææ¿ãæ±ºç­æ¸å®
+// 2. eventMonitor()   â æ¯ 30 åéæª¢æ¥ ROAS / çé ç®
+// 3. pushToAdmin()    â æè¨æ¯æ¨å° admin ç LINE
+// 4. registerAdminFromLine() â admin å¨ LINE å° Bot å³ "/admin" è¨»å
 // ============================================================
 
 const fs = require("fs");
@@ -21,7 +21,7 @@ function adminPath(dataDir) {
 }
 
 function loadAdmin(dataDir) {
-  // Env var 優先（永久化，不受 Render 重新部署影響）
+  // Env var åªåï¼æ°¸ä¹åï¼ä¸å Render éæ°é¨ç½²å½±é¿ï¼
   if (process.env.ADMIN_LINE_USER_ID) {
     return {
       lineUserId: process.env.ADMIN_LINE_USER_ID,
@@ -64,8 +64,8 @@ async function pushToAdmin({ line, dataDir, text }) {
     return { ok: false, reason: "no LINE token" };
   }
   try {
-    // LINE 單一訊息限 5000 字
-    const safeText = text.length > 4900 ? text.slice(0, 4800) + "\n\n…(訊息過長已截斷)" : text;
+    // LINE å®ä¸è¨æ¯é 5000 å­
+    const safeText = text.length > 4900 ? text.slice(0, 4800) + "\n\nâ¦(è¨æ¯éé·å·²æªæ·)" : text;
     const result = await line.pushMessage(admin.lineUserId, [{ type: "text", text: safeText }]);
     return { ok: true, result };
   } catch (e) {
@@ -125,117 +125,120 @@ async function dailyBriefing({ anthropic, model, employees, meta, customers, dat
     };
   } catch (e) {
     snapshot.customerSegments = { error: e.message }
-
-  // 客服洞察（SaleSmartly）— 過去 7 天客人最常問什麼
+  }
+  // 客服洞察（SaleSmartly）— 從 cache 讀（背景刷新避免拖慢 briefing）
   try {
-    if (salesmartly && typeof salesmartly.getCustomerInsights === 'function') {
-      const ins = await salesmartly.getCustomerInsights({ days: 7 });
-      if (ins && ins.ok) {
+    const cacheFile = path.join(__dirname, 'data', 'salesmartly_conversations.json');
+    if (fs.existsSync(cacheFile)) {
+      const cache = JSON.parse(fs.readFileSync(cacheFile, 'utf8'));
+      if (cache && cache.topics) {
         snapshot.customerInsights = {
-          conversation_count: ins.conversation_count,
-          message_count: ins.message_count,
-          topics: ins.topics,
-          summary: ins.summary,
+          conversation_count: cache.conversation_count,
+          message_count: cache.message_count,
+          topics: cache.topics,
+          updated_at: cache.updated_at,
         };
       }
     }
+    if (salesmartly && typeof salesmartly.getCustomerInsights === 'function') {
+      salesmartly.getCustomerInsights({ days: 7 }).catch(() => {});
+    }
   } catch (e) {
-    console.error('[alerts] salesmartly insights failed:', e.message);
-  };
+    console.error('[alerts] salesmartly cache read failed:', e.message);
   }
 
   const taipeiNow = new Date(new Date().toLocaleString("en-US", { timeZone: "Asia/Taipei" }));
   const today = taipeiNow.toLocaleDateString("zh-TW");
   const dayNum = taipeiNow.getDay();
-  const weekday = ["日", "一", "二", "三", "四", "五", "六"][dayNum];
+  const weekday = ["æ¥", "ä¸", "äº", "ä¸", "å", "äº", "å­"][dayNum];
 
   let specialBlock = "";
   if (dayNum === 1) {
     specialBlock = `
 
-🎯 本週戰略（週一獨有，要花腦力想清楚）
-本週主題：（一句話定調，例：「攻馬國線上課招生」）
-3 大目標：
-1. （含具體 KPI 數字）
+ð¯ æ¬é±æ°ç¥ï¼é±ä¸ç¨æï¼è¦è±è¦åæ³æ¸æ¥ï¼
+æ¬é±ä¸»é¡ï¼ï¼ä¸å¥è©±å®èª¿ï¼ä¾ï¼ãæ»é¦¬åç·ä¸èª²æçãï¼
+3 å¤§ç®æ¨ï¼
+1. ï¼å«å·é« KPI æ¸å­ï¼
 2. ...
 3. ...
-員工分工：
-· LEON：本週負責...
-· SOFIA：本週負責...
-· DEX：本週負責...
-· （其他員工）...
+å¡å·¥åå·¥ï¼
+Â· LEONï¼æ¬é±è² è²¬...
+Â· SOFIAï¼æ¬é±è² è²¬...
+Â· DEXï¼æ¬é±è² è²¬...
+Â· ï¼å¶ä»å¡å·¥ï¼...
 
-⚠️ Jeffrey 本週只需要決定 2-3 件大事（後面決策清單會列）`;
+â ï¸ Jeffrey æ¬é±åªéè¦æ±ºå® 2-3 ä»¶å¤§äºï¼å¾é¢æ±ºç­æ¸å®æåï¼`;
   } else if (dayNum === 3) {
     specialBlock = `
 
-🔄 中週調整（週三獨有）
-週一目標完成度：1️⃣ X% 2️⃣ X% 3️⃣ X%
-偏離預期的：（哪一項落後、為什麼、要不要調整方向）
-後半週要修什麼：（具體動作）`;
+ð ä¸­é±èª¿æ´ï¼é±ä¸ç¨æï¼
+é±ä¸ç®æ¨å®æåº¦ï¼1ï¸â£ X% 2ï¸â£ X% 3ï¸â£ X%
+åé¢é æçï¼ï¼åªä¸é è½å¾ãçºä»éº¼ãè¦ä¸è¦èª¿æ´æ¹åï¼
+å¾åé±è¦ä¿®ä»éº¼ï¼ï¼å·é«åä½ï¼`;
   } else if (dayNum === 0) {
     specialBlock = `
 
-📚 本週學習（週日獨有）
-本週 work：（哪些動作奏效、為什麼）
-本週 fail：（哪些 fail、學到什麼）
-數字總結：本週招生 N 人、廣告燒 NT$X、ROAS Y
+ð æ¬é±å­¸ç¿ï¼é±æ¥ç¨æï¼
+æ¬é± workï¼ï¼åªäºåä½å¥æãçºä»éº¼ï¼
+æ¬é± failï¼ï¼åªäº failãå­¸å°ä»éº¼ï¼
+æ¸å­ç¸½çµï¼æ¬é±æç N äººãå»£åç NT$XãROAS Y
 
-🔮 下週預告
-下週主題：（預告，但別太死，週一會重新確認）
-要 Jeffrey 週日晚上想清楚的：（1-2 件）`;
+ð® ä¸é±é å
+ä¸é±ä¸»é¡ï¼ï¼é åï¼ä½å¥å¤ªæ­»ï¼é±ä¸æéæ°ç¢ºèªï¼
+è¦ Jeffrey é±æ¥æä¸æ³æ¸æ¥çï¼ï¼1-2 ä»¶ï¼`;
   }
 
-  const userPrompt = `現在是台灣早上 09:00，請以 ofz beauty academy 行銷總監身分，產出推到 Jeffrey LINE 的「今日早安簡報」。
+  const userPrompt = `ç¾å¨æ¯å°ç£æ©ä¸ 09:00ï¼è«ä»¥ ofz beauty academy è¡é·ç¸½ç£èº«åï¼ç¢åºæ¨å° Jeffrey LINE çãä»æ¥æ©å®ç°¡å ±ãã
 
-【今日資料快照】
+ãä»æ¥è³æå¿«ç§ã
 ${JSON.stringify(snapshot, null, 2).slice(0, 4500)}
 
-【輸出規範（嚴格遵守）】
-- 純文字格式（不要 HTML、不要 Markdown）
-- LINE 訊息上限 1500 字
-- 結構固定如下：
+ãè¼¸åºè¦ç¯ï¼å´æ ¼éµå®ï¼ã
+- ç´æå­æ ¼å¼ï¼ä¸è¦ HTMLãä¸è¦ Markdownï¼
+- LINE è¨æ¯ä¸é 1500 å­
+- çµæ§åºå®å¦ä¸ï¼
 
-📊 ofz · 早安簡報 · ${today} (${weekday})
+ð ofz Â· æ©å®ç°¡å ± Â· ${today} (${weekday})
 ${specialBlock}
 
-🎯 今日重點
-（2-3 句濃縮昨日成效，分課程 vs 療程、🇹🇼 vs 🇲🇾）
+ð¯ ä»æ¥éé»
+ï¼2-3 å¥æ¿ç¸®æ¨æ¥ææï¼åèª²ç¨ vs çç¨ãð¹ð¼ vs ð²ð¾ï¼
 
-🚨 今天 3 件員工任務（已分配，員工自己會做）
-1. [LEON/SOFIA/DEX/誰] 動詞開頭的具體任務（誰、做什麼、deadline）
+ð¨ ä»å¤© 3 ä»¶å¡å·¥ä»»åï¼å·²åéï¼å¡å·¥èªå·±æåï¼
+1. [LEON/SOFIA/DEX/èª°] åè©éé ­çå·é«ä»»åï¼èª°ãåä»éº¼ãdeadlineï¼
 2. ...
 3. ...
 
-🤔 等你拍板（最多 3 件，每件都要附 AI 推薦 + 理由）
-1. 【決策題目】：（一句話講清楚要決定什麼）
-   背景：（1-2 句脈絡）
-   👉 [員工名] 推薦：[具體答案]
-   理由：（為何這個答案，1-2 句）
-   📲 你回「1ok」同意 / 「1no」拒絕 / 「1?」要討論
+ð¤ ç­ä½ ææ¿ï¼æå¤ 3 ä»¶ï¼æ¯ä»¶é½è¦é AI æ¨è¦ + çç±ï¼
+1. ãæ±ºç­é¡ç®ãï¼ï¼ä¸å¥è©±è¬æ¸æ¥è¦æ±ºå®ä»éº¼ï¼
+   èæ¯ï¼ï¼1-2 å¥èçµ¡ï¼
+   ð [å¡å·¥å] æ¨è¦ï¼[å·é«ç­æ¡]
+   çç±ï¼ï¼çºä½éåç­æ¡ï¼1-2 å¥ï¼
+   ð² ä½ åã1okãåæ / ã1noãæçµ / ã1?ãè¦è¨è«
 
-2. 【決策題目】：...
+2. ãæ±ºç­é¡ç®ãï¼...
    ...
-   📲 回「2ok / 2no / 2?」
+   ð² åã2ok / 2no / 2?ã
 
-3. 【決策題目】：...
+3. ãæ±ºç­é¡ç®ãï¼...
    ...
-   📲 回「3ok / 3no / 3?」
+   ð² åã3ok / 3no / 3?ã
 
-📈 廣告紅綠燈
-🔴 紅燈 N 個：（簡述）
-🟡 黃燈 N 個：（簡述）
-🟢 綠燈 N 個：（放著跑）
+ð å»£åç´ç¶ ç
+ð´ ç´ç N åï¼ï¼ç°¡è¿°ï¼
+ð¡ é»ç N åï¼ï¼ç°¡è¿°ï¼
+ð¢ ç¶ ç N åï¼ï¼æ¾èè·ï¼
 
-打 https://beauty-office.onrender.com 找 VICTOR 拿詳細
+æ https://beauty-office.onrender.com æ¾ VICTOR æ¿è©³ç´°
 
-【鐵則】
-- 不要寫「請問需要更多資訊嗎」這種廢話
-- 「等你拍板」3 件必須是真正需要 Jeffrey 決定的事（不是員工自己能搞定的小事）
-- 每件決策的「推薦答案」要明確（不要「看情況」、「再觀察」這種模糊回答）
-- 推薦答案的「理由」要基於數據（廣告 ROAS、客人留言、課程銷量），不要憑感覺
-- 沒有資料的欄位寫 "（資料缺，待設定）"，不要硬掰
-- 如果今天真的沒有需要 Jeffrey 拍板的事，「等你拍板」就寫「✨ 今天沒大事，員工自己會處理」`;
+ãéµåã
+- ä¸è¦å¯«ãè«åéè¦æ´å¤è³è¨åãéç¨®å»¢è©±
+- ãç­ä½ ææ¿ã3 ä»¶å¿é æ¯çæ­£éè¦ Jeffrey æ±ºå®çäºï¼ä¸æ¯å¡å·¥èªå·±è½æå®çå°äºï¼
+- æ¯ä»¶æ±ºç­çãæ¨è¦ç­æ¡ãè¦æç¢ºï¼ä¸è¦ãçææ³ãããåè§å¯ãéç¨®æ¨¡ç³åç­ï¼
+- æ¨è¦ç­æ¡çãçç±ãè¦åºæ¼æ¸æï¼å»£å ROASãå®¢äººçè¨ãèª²ç¨é·éï¼ï¼ä¸è¦ææè¦º
+- æ²æè³æçæ¬ä½å¯« "ï¼è³æç¼ºï¼å¾è¨­å®ï¼"ï¼ä¸è¦ç¡¬æ°
+- å¦æä»å¤©ççæ²æéè¦ Jeffrey ææ¿çäºï¼ãç­ä½ ææ¿ãå°±å¯«ãâ¨ ä»å¤©æ²å¤§äºï¼å¡å·¥èªå·±æèçã`;
 
   let text;
   try {
@@ -275,7 +278,7 @@ async function eventMonitor({ anthropic, model, employees, meta, customers, data
         .slice(0, 3)
         .map(
           (a) =>
-            `· ${a.name?.slice(0, 30) || "?"}：燒 NT$${Math.round(
+            `Â· ${a.name?.slice(0, 30) || "?"}ï¼ç NT$${Math.round(
               a.spend
             )} ROAS ${Number(a.purchase_roas[0].value).toFixed(2)}`
         )
@@ -283,7 +286,7 @@ async function eventMonitor({ anthropic, model, employees, meta, customers, data
       checks.push({
         type: "low-roas",
         severity: "high",
-        title: `🔴 ${lowRoasAds.length} 個廣告 ROAS < 1.0`,
+        title: `ð´ ${lowRoasAds.length} åå»£å ROAS < 1.0`,
         detail,
       });
     }
@@ -297,8 +300,8 @@ async function eventMonitor({ anthropic, model, employees, meta, customers, data
       checks.push({
         type: "no-conversions",
         severity: "high",
-        title: `🔴 過去 7 天廣告燒 NT$${Math.round(totalSpend)} 但 0 轉換`,
-        detail: "可能是追蹤碼壞了 / 受眾錯了 / 落地頁壞了，請馬上處理",
+        title: `ð´ éå» 7 å¤©å»£åç NT$${Math.round(totalSpend)} ä½ 0 è½æ`,
+        detail: "å¯è½æ¯è¿½è¹¤ç¢¼å£äº / åç¾é¯äº / è½å°é å£äºï¼è«é¦¬ä¸èç",
       });
     }
   } catch (e) {}
@@ -307,9 +310,9 @@ async function eventMonitor({ anthropic, model, employees, meta, customers, data
 
   const now = new Date().toLocaleString("zh-TW", { timeZone: "Asia/Taipei", hour12: false });
   const text =
-    `⚠️ ofz · 即時警示 · ${now}\n\n` +
-    checks.map((c) => `${c.title}\n${c.detail}`).join("\n\n───\n\n") +
-    `\n\n打 https://beauty-office.onrender.com 找 VICTOR 處理`;
+    `â ï¸ ofz Â· å³æè­¦ç¤º Â· ${now}\n\n` +
+    checks.map((c) => `${c.title}\n${c.detail}`).join("\n\nâââ\n\n") +
+    `\n\næ https://beauty-office.onrender.com æ¾ VICTOR èç`;
 
   const pushed = await pushToAdmin({ line, dataDir, text });
   return { ok: true, alerts: checks, pushed };
