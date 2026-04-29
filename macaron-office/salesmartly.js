@@ -1,5 +1,6 @@
 // salesmartly.js — SaleSmartly API client + customer insight extractor
 // env: SALESMARTLY_TOKEN, SALESMARTLY_PROJECT_ID, SALESMARTLY_BASE_URL (optional)
+// V2 endpoints based on apifox doc category structure
 
 const crypto = require('crypto');
 const fs = require('fs');
@@ -35,31 +36,59 @@ async function apiCall(endpoint, params = {}, method = 'POST') {
   const text = await res.text();
   let json; try { json = JSON.parse(text); } catch { json = { raw: text }; }
   if (!res.ok) throw new Error('SS ' + endpoint + ' ' + res.status + ' ' + text.slice(0,200));
+  if (json && json.code !== undefined && json.code !== 0) {
+    throw new Error('SS ' + endpoint + ' code=' + json.code + ' ' + (json.msg || json.message || ''));
+  }
   return json;
 }
 
-async function tryEndpoints(endpoints, params) {
-  let lastErr;
+const CONV_ENDPOINTS = [
+  '/v2/chat/list', '/v2/chats/list', '/v2/conversations/list',
+  '/openapi/v2/chat/list', '/openapi/v2/conversation/list',
+  '/v1/conversations', '/v1/conversation/list', '/openapi/conversation/list',
+  '/api/v2/chats', '/api/conversations',
+];
+const MSG_ENDPOINTS = [
+  '/v2/message/list', '/v2/messages/list',
+  '/openapi/v2/message/list',
+  '/v1/messages', '/v1/message/list', '/openapi/message/list',
+];
+
+async function tryEndpoints(endpoints, params, methods = ['POST', 'GET']) {
+  const attempts = [];
   for (const ep of endpoints) {
-    try { const r = await apiCall(ep, params, 'POST'); r._endpoint_used = ep; return r; }
-    catch (e) { lastErr = e; }
+    for (const method of methods) {
+      try {
+        const r = await apiCall(ep, params, method);
+        r._endpoint_used = ep; r._method_used = method;
+        return { ok: true, result: r, attempts };
+      } catch (e) {
+        attempts.push({ endpoint: ep, method, error: e.message.slice(0, 200) });
+      }
+    }
   }
-  throw new Error('All endpoints failed: ' + (lastErr && lastErr.message));
+  return { ok: false, attempts };
 }
 
 async function listRecentConversations({ days = 7, page = 1, page_size = 50 } = {}) {
   const now = Math.floor(Date.now() / 1000);
-  return tryEndpoints(
-    ['/v1/conversations', '/v1/conversation/list', '/openapi/conversation/list', '/api/conversations'],
-    { page, page_size, start_time: now - days * 86400, end_time: now }
-  );
+  const params = { page, page_size, start_time: now - days * 86400, end_time: now };
+  const out = await tryEndpoints(CONV_ENDPOINTS, params);
+  if (!out.ok) {
+    const err = new Error('All conversation endpoints failed');
+    err.attempts = out.attempts; throw err;
+  }
+  return out.result;
 }
 
 async function listMessages(chat_user_id, { page = 1, page_size = 50 } = {}) {
-  return tryEndpoints(
-    ['/v1/messages', '/v1/message/list', '/openapi/message/list'],
-    { chat_user_id, page, page_size }
-  );
+  const params = { chat_user_id, page, page_size };
+  const out = await tryEndpoints(MSG_ENDPOINTS, params);
+  if (!out.ok) {
+    const err = new Error('All message endpoints failed');
+    err.attempts = out.attempts; throw err;
+  }
+  return out.result;
 }
 
 const BUCKETS = {
@@ -96,17 +125,17 @@ async function getCustomerInsights({ days = 7 } = {}) {
   if (!TOKEN || !PROJECT_ID) return { ok: false, reason: 'env not set', summary: null };
   try {
     const cl = await listRecentConversations({ days, page_size: 100 });
-    const convs = cl.data || cl.list || cl.items || [];
+    const convs = cl.data || cl.list || cl.items || (cl.result && cl.result.list) || [];
     const allMsgs = [];
     for (const conv of convs.slice(0, 20)) {
-      const uid = conv.chat_user_id || conv.user_id || conv.id;
+      const uid = conv.chat_user_id || conv.user_id || conv.contact_id || conv.id;
       if (!uid) continue;
       try {
         const mr = await listMessages(uid, { page_size: 30 });
-        const ms = mr.data || mr.list || mr.items || [];
+        const ms = mr.data || mr.list || mr.items || (mr.result && mr.result.list) || [];
         const inb = ms.filter(m => {
-          const d = m.direction || m.from_type || m.sender_type;
-          return d === 'in' || d === 'visitor' || d === 'customer' || d === 1;
+          const d = m.direction || m.from_type || m.sender_type || m.message_direction;
+          return d === 'in' || d === 'visitor' || d === 'customer' || d === 1 || d === '1';
         });
         allMsgs.push(...inb);
       } catch {}
@@ -114,11 +143,11 @@ async function getCustomerInsights({ days = 7 } = {}) {
     const topics = extractTopQuestions(allMsgs);
     try {
       if (!fs.existsSync(CACHE_DIR)) fs.mkdirSync(CACHE_DIR, { recursive: true });
-      fs.writeFileSync(CACHE_FILE, JSON.stringify({ updated_at: new Date().toISOString(), conversation_count: convs.length, message_count: allMsgs.length, topics }, null, 2));
+      fs.writeFileSync(CACHE_FILE, JSON.stringify({ updated_at: new Date().toISOString(), conversation_count: convs.length, message_count: allMsgs.length, topics, endpoint_used: cl._endpoint_used }, null, 2));
     } catch {}
-    return { ok: true, conversation_count: convs.length, message_count: allMsgs.length, topics, summary: formatBriefingSection(topics, convs.length, allMsgs.length, days) };
+    return { ok: true, conversation_count: convs.length, message_count: allMsgs.length, topics, summary: formatBriefingSection(topics, convs.length, allMsgs.length, days), endpoint_used: cl._endpoint_used };
   } catch (err) {
-    return { ok: false, reason: err.message, summary: null };
+    return { ok: false, reason: err.message, attempts: err.attempts || null, summary: null };
   }
 }
 
@@ -133,4 +162,15 @@ function formatBriefingSection(topics, convCount, msgCount, days) {
   return lines.join('\n');
 }
 
-module.exports = { signParams, apiCall, listRecentConversations, listMessages, extractTopQuestions, getCustomerInsights, formatBriefingSection };
+// Debug: probe all endpoint variants
+async function probeAll() {
+  const now = Math.floor(Date.now() / 1000);
+  const probe_params = { page: 1, page_size: 5, start_time: now - 7 * 86400, end_time: now };
+  const conv = await tryEndpoints(CONV_ENDPOINTS, probe_params);
+  return {
+    token_set: !!TOKEN, project_id: PROJECT_ID, base_url: BASE_URL,
+    conv_probe: conv,
+  };
+}
+
+module.exports = { signParams, apiCall, listRecentConversations, listMessages, extractTopQuestions, getCustomerInsights, formatBriefingSection, probeAll };
