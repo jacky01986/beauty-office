@@ -1,4 +1,4 @@
-// salesmartly.js Ã¢ÂÂ SaleSmartly API client + customer insight extractor
+// salesmartly.js ÃÂ¢ÃÂÃÂ SaleSmartly API client + customer insight extractor
 // env: SALESMARTLY_TOKEN, SALESMARTLY_PROJECT_ID, SALESMARTLY_BASE_URL (optional)
 // V2 endpoints based on apifox doc category structure
 
@@ -66,8 +66,9 @@ async function tryEndpoints(endpoints, params, methods = ['GET', 'POST']) {
 }
 
 async function listRecentConversations({ days = 7, page = 1, page_size = 50 } = {}) {
-  const now = Math.floor(Date.now() / 1000);
-  const params = { page, page_size, start_time: now - days * 86400, end_time: now };
+  // SaleSmartly /api/v2/get-session-list: project_id required as query param
+  // start_time/end_time are optional JSON-format strings
+  const params = { page, page_size, project_id: PROJECT_ID };
   const out = await tryEndpoints(CONV_ENDPOINTS, params);
   if (!out.ok) {
     const err = new Error('All conversation endpoints failed');
@@ -77,7 +78,7 @@ async function listRecentConversations({ days = 7, page = 1, page_size = 50 } = 
 }
 
 async function listMessages(chat_user_id, { page = 1, page_size = 50 } = {}) {
-  const params = { chat_user_id, page, page_size };
+  const params = { chat_user_id, page, page_size, project_id: PROJECT_ID };
   const out = await tryEndpoints(MSG_ENDPOINTS, params);
   if (!out.ok) {
     const err = new Error('All message endpoints failed');
@@ -87,14 +88,14 @@ async function listMessages(chat_user_id, { page = 1, page_size = 50 } = {}) {
 }
 
 const BUCKETS = {
-  'price': { rx: /Ã¥ÂÂ¹Ã©ÂÂ¢|Ã¥Â­Â¸Ã¨Â²Â»|Ã¥Â¤ÂÃ¥Â°ÂÃ©ÂÂ¢|Ã¨Â²Â»Ã§ÂÂ¨|Ã¥Â Â±Ã¥ÂÂ¹|Ã¥ÂÂ¹Ã¦Â Â¼/, label: 'Ã¥ÂÂ¹Ã¦Â Â¼ / Ã¥Â­Â¸Ã¨Â²Â»' },
-  'content': { rx: /Ã¨ÂªÂ²Ã§Â¨Â|Ã¦ÂÂÃ¤Â»ÂÃ©ÂºÂ¼|Ã¥ÂÂ§Ã¥Â®Â¹|Ã¥Â¤Â§Ã§Â¶Â±|Ã¥Â­Â¸Ã¤Â»ÂÃ©ÂºÂ¼/, label: 'Ã¨ÂªÂ²Ã§Â¨ÂÃ¥ÂÂ§Ã¥Â®Â¹' },
-  'time': { rx: /Ã¦ÂÂÃ©ÂÂ|Ã¤Â»ÂÃ©ÂºÂ¼Ã¦ÂÂÃ¥ÂÂ|Ã©ÂÂÃ¨ÂªÂ²|Ã¤Â½ÂÃ¦ÂÂ/, label: 'Ã¤Â¸ÂÃ¨ÂªÂ²Ã¦ÂÂÃ©ÂÂ' },
-  'pay': { rx: /Ã¦ÂÂÃ©ÂºÂ¼Ã¥Â Â±Ã¥ÂÂ|Ã¤Â»ÂÃ¦Â¬Â¾|Ã¥ÂÂ¯Ã¦Â¬Â¾|Ã¥ÂÂ·Ã¥ÂÂ¡|Ã¥ÂÂÃ¦ÂÂ/, label: 'Ã¥Â Â±Ã¥ÂÂ / Ã¤Â»ÂÃ¦Â¬Â¾' },
-  'cert': { rx: /Ã¨Â­ÂÃ§ÂÂ§|Ã¨Â­ÂÃ¦ÂÂ¸|Ã¥ÂÂ·Ã§ÂÂ§|Ã§ÂµÂÃ¦Â¥Â­/, label: 'Ã¨Â­ÂÃ§ÂÂ§ / Ã§ÂµÂÃ¦Â¥Â­' },
-  'refund': { rx: /Ã©ÂÂÃ¨Â²Â»|Ã¥ÂÂÃ¦Â¶Â|Ã©ÂÂÃ¦Â¬Â¾/, label: 'Ã©ÂÂÃ¨Â²Â» / Ã¥ÂÂÃ¦Â¶Â' },
-  'teacher': { rx: /Ã¨ÂÂÃ¥Â¸Â«|Ã¥Â¸Â«Ã¨Â³Â|Ã¨ÂªÂ°Ã¦ÂÂ/, label: 'Ã¥Â¸Â«Ã¨Â³Â / Ã¨ÂÂÃ¥Â¸Â«' },
-  'place': { rx: /Ã¥ÂÂ°Ã©Â»Â|Ã¦ÂÂÃ¥Â®Â¤|Ã¥ÂÂ°Ã¥ÂÂ|Ã¥ÂÂªÃ¨Â£Â¡/, label: 'Ã¥ÂÂ°Ã©Â»Â / Ã¦ÂÂÃ¥Â®Â¤' },
+  'price': { rx: /ÃÂ¥ÃÂÃÂ¹ÃÂ©ÃÂÃÂ¢|ÃÂ¥ÃÂ­ÃÂ¸ÃÂ¨ÃÂ²ÃÂ»|ÃÂ¥ÃÂ¤ÃÂÃÂ¥ÃÂ°ÃÂÃÂ©ÃÂÃÂ¢|ÃÂ¨ÃÂ²ÃÂ»ÃÂ§ÃÂÃÂ¨|ÃÂ¥ÃÂ ÃÂ±ÃÂ¥ÃÂÃÂ¹|ÃÂ¥ÃÂÃÂ¹ÃÂ¦ÃÂ ÃÂ¼/, label: 'ÃÂ¥ÃÂÃÂ¹ÃÂ¦ÃÂ ÃÂ¼ / ÃÂ¥ÃÂ­ÃÂ¸ÃÂ¨ÃÂ²ÃÂ»' },
+  'content': { rx: /ÃÂ¨ÃÂªÃÂ²ÃÂ§ÃÂ¨ÃÂ|ÃÂ¦ÃÂÃÂÃÂ¤ÃÂ»ÃÂÃÂ©ÃÂºÃÂ¼|ÃÂ¥ÃÂÃÂ§ÃÂ¥ÃÂ®ÃÂ¹|ÃÂ¥ÃÂ¤ÃÂ§ÃÂ§ÃÂ¶ÃÂ±|ÃÂ¥ÃÂ­ÃÂ¸ÃÂ¤ÃÂ»ÃÂÃÂ©ÃÂºÃÂ¼/, label: 'ÃÂ¨ÃÂªÃÂ²ÃÂ§ÃÂ¨ÃÂÃÂ¥ÃÂÃÂ§ÃÂ¥ÃÂ®ÃÂ¹' },
+  'time': { rx: /ÃÂ¦ÃÂÃÂÃÂ©ÃÂÃÂ|ÃÂ¤ÃÂ»ÃÂÃÂ©ÃÂºÃÂ¼ÃÂ¦ÃÂÃÂÃÂ¥ÃÂÃÂ|ÃÂ©ÃÂÃÂÃÂ¨ÃÂªÃÂ²|ÃÂ¤ÃÂ½ÃÂÃÂ¦ÃÂÃÂ/, label: 'ÃÂ¤ÃÂ¸ÃÂÃÂ¨ÃÂªÃÂ²ÃÂ¦ÃÂÃÂÃÂ©ÃÂÃÂ' },
+  'pay': { rx: /ÃÂ¦ÃÂÃÂÃÂ©ÃÂºÃÂ¼ÃÂ¥ÃÂ ÃÂ±ÃÂ¥ÃÂÃÂ|ÃÂ¤ÃÂ»ÃÂÃÂ¦ÃÂ¬ÃÂ¾|ÃÂ¥ÃÂÃÂ¯ÃÂ¦ÃÂ¬ÃÂ¾|ÃÂ¥ÃÂÃÂ·ÃÂ¥ÃÂÃÂ¡|ÃÂ¥ÃÂÃÂÃÂ¦ÃÂÃÂ/, label: 'ÃÂ¥ÃÂ ÃÂ±ÃÂ¥ÃÂÃÂ / ÃÂ¤ÃÂ»ÃÂÃÂ¦ÃÂ¬ÃÂ¾' },
+  'cert': { rx: /ÃÂ¨ÃÂ­ÃÂÃÂ§ÃÂÃÂ§|ÃÂ¨ÃÂ­ÃÂÃÂ¦ÃÂÃÂ¸|ÃÂ¥ÃÂÃÂ·ÃÂ§ÃÂÃÂ§|ÃÂ§ÃÂµÃÂÃÂ¦ÃÂ¥ÃÂ­/, label: 'ÃÂ¨ÃÂ­ÃÂÃÂ§ÃÂÃÂ§ / ÃÂ§ÃÂµÃÂÃÂ¦ÃÂ¥ÃÂ­' },
+  'refund': { rx: /ÃÂ©ÃÂÃÂÃÂ¨ÃÂ²ÃÂ»|ÃÂ¥ÃÂÃÂÃÂ¦ÃÂ¶ÃÂ|ÃÂ©ÃÂÃÂÃÂ¦ÃÂ¬ÃÂ¾/, label: 'ÃÂ©ÃÂÃÂÃÂ¨ÃÂ²ÃÂ» / ÃÂ¥ÃÂÃÂÃÂ¦ÃÂ¶ÃÂ' },
+  'teacher': { rx: /ÃÂ¨ÃÂÃÂÃÂ¥ÃÂ¸ÃÂ«|ÃÂ¥ÃÂ¸ÃÂ«ÃÂ¨ÃÂ³ÃÂ|ÃÂ¨ÃÂªÃÂ°ÃÂ¦ÃÂÃÂ/, label: 'ÃÂ¥ÃÂ¸ÃÂ«ÃÂ¨ÃÂ³ÃÂ / ÃÂ¨ÃÂÃÂÃÂ¥ÃÂ¸ÃÂ«' },
+  'place': { rx: /ÃÂ¥ÃÂÃÂ°ÃÂ©ÃÂ»ÃÂ|ÃÂ¦ÃÂÃÂÃÂ¥ÃÂ®ÃÂ¤|ÃÂ¥ÃÂÃÂ°ÃÂ¥ÃÂÃÂ|ÃÂ¥ÃÂÃÂªÃÂ¨ÃÂ£ÃÂ¡/, label: 'ÃÂ¥ÃÂÃÂ°ÃÂ©ÃÂ»ÃÂ / ÃÂ¦ÃÂÃÂÃÂ¥ÃÂ®ÃÂ¤' },
 };
 
 function extractTopQuestions(messages) {
@@ -147,20 +148,19 @@ async function getCustomerInsights({ days = 7 } = {}) {
 }
 
 function formatBriefingSection(topics, convCount, msgCount, days) {
-  if (!topics || topics.length === 0) return 'Ã¥Â®Â¢Ã¦ÂÂÃ¯Â¼ÂÃ©ÂÂÃ¥ÂÂ» ' + days + ' Ã¥Â¤Â©Ã¯Â¼ÂÃ¯Â¼ÂÃ§ÂÂ¡Ã¥Â°ÂÃ¨Â©Â±Ã¨Â³ÂÃ¦ÂÂ';
-  const lines = ['Ã°ÂÂÂ Ã¦ÂÂ¬Ã©ÂÂ±Ã¥Â®Â¢Ã¦ÂÂÃ¦Â´ÂÃ¥Â¯ÂÃ¯Â¼ÂÃ©ÂÂÃ¥ÂÂ» ' + days + ' Ã¥Â¤Â©Ã¯Â¼Â' + convCount + ' Ã¥Â Â´Ã¥Â°ÂÃ¨Â©Â± / ' + msgCount + ' Ã¥ÂÂÃ¥Â®Â¢Ã¤ÂºÂºÃ¨Â¨ÂÃ¦ÂÂ¯Ã¯Â¼Â'];
-  topics.slice(0, 5).forEach((t, i) => { lines.push((i+1) + '. ' + t.topic + 'Ã¯Â¼Â' + t.count + ' Ã¦Â¬Â¡'); });
+  if (!topics || topics.length === 0) return 'ÃÂ¥ÃÂ®ÃÂ¢ÃÂ¦ÃÂÃÂÃÂ¯ÃÂ¼ÃÂÃÂ©ÃÂÃÂÃÂ¥ÃÂÃÂ» ' + days + ' ÃÂ¥ÃÂ¤ÃÂ©ÃÂ¯ÃÂ¼ÃÂÃÂ¯ÃÂ¼ÃÂÃÂ§ÃÂÃÂ¡ÃÂ¥ÃÂ°ÃÂÃÂ¨ÃÂ©ÃÂ±ÃÂ¨ÃÂ³ÃÂÃÂ¦ÃÂÃÂ';
+  const lines = ['ÃÂ°ÃÂÃÂÃÂ ÃÂ¦ÃÂÃÂ¬ÃÂ©ÃÂÃÂ±ÃÂ¥ÃÂ®ÃÂ¢ÃÂ¦ÃÂÃÂÃÂ¦ÃÂ´ÃÂÃÂ¥ÃÂ¯ÃÂÃÂ¯ÃÂ¼ÃÂÃÂ©ÃÂÃÂÃÂ¥ÃÂÃÂ» ' + days + ' ÃÂ¥ÃÂ¤ÃÂ©ÃÂ¯ÃÂ¼ÃÂ' + convCount + ' ÃÂ¥ÃÂ ÃÂ´ÃÂ¥ÃÂ°ÃÂÃÂ¨ÃÂ©ÃÂ± / ' + msgCount + ' ÃÂ¥ÃÂÃÂÃÂ¥ÃÂ®ÃÂ¢ÃÂ¤ÃÂºÃÂºÃÂ¨ÃÂ¨ÃÂÃÂ¦ÃÂÃÂ¯ÃÂ¯ÃÂ¼ÃÂ'];
+  topics.slice(0, 5).forEach((t, i) => { lines.push((i+1) + '. ' + t.topic + 'ÃÂ¯ÃÂ¼ÃÂ' + t.count + ' ÃÂ¦ÃÂ¬ÃÂ¡'); });
   if (topics[0] && topics[0].count >= 5) {
     lines.push('');
-    lines.push('Ã°ÂÂÂ¡ Ã¥Â»ÂºÃ¨Â­Â°Ã¯Â¼ÂÃ£ÂÂ' + topics[0].topic + 'Ã£ÂÂÃ©ÂÂÃ©ÂÂ±Ã¨Â¢Â«Ã¥ÂÂ ' + topics[0].count + ' Ã¦Â¬Â¡ Ã¢ÂÂ CAMILLE Ã¥Â¯Â«Ã¤Â¸ÂÃ§Â¯Â FAQ');
+    lines.push('ÃÂ°ÃÂÃÂÃÂ¡ ÃÂ¥ÃÂ»ÃÂºÃÂ¨ÃÂ­ÃÂ°ÃÂ¯ÃÂ¼ÃÂÃÂ£ÃÂÃÂ' + topics[0].topic + 'ÃÂ£ÃÂÃÂÃÂ©ÃÂÃÂÃÂ©ÃÂÃÂ±ÃÂ¨ÃÂ¢ÃÂ«ÃÂ¥ÃÂÃÂ ' + topics[0].count + ' ÃÂ¦ÃÂ¬ÃÂ¡ ÃÂ¢ÃÂÃÂ CAMILLE ÃÂ¥ÃÂ¯ÃÂ«ÃÂ¤ÃÂ¸ÃÂÃÂ§ÃÂ¯ÃÂ FAQ');
   }
   return lines.join('\n');
 }
 
 // Debug: probe all endpoint variants
 async function probeAll() {
-  const now = Math.floor(Date.now() / 1000);
-  const probe_params = { page: 1, page_size: 5, start_time: now - 7 * 86400, end_time: now };
+  const probe_params = { page: 1, page_size: 5, project_id: PROJECT_ID };
   const conv = await tryEndpoints(CONV_ENDPOINTS, probe_params);
   return {
     token_set: !!TOKEN, project_id: PROJECT_ID, base_url: BASE_URL,
