@@ -26,6 +26,7 @@ metaOverride.applyOnStartup();
 const autoPublish = require("./auto-publish");
 const salesmartly = require("./salesmartly");
 const metaCapi = require("./meta-capi");
+const __webhookHits = [];
 const toolDefs = require("./tools");
 
 // In-memory proposal storage (ä¿çå¨è¨æ¶é«å°±å¥½ï¼éåå¤±æ OK)
@@ -232,9 +233,13 @@ app.get("/api/meta/status", async (req, res) => {
 });
 
 // /api/meta/assets â ååº user ææ FB Pages / IG Business / Ad Accountsï¼for switcherï¼
+app.get("/api/salesmartly/webhook/recent", (req, res) => { res.json({ count: __webhookHits.length, hits: __webhookHits.slice(-20) }); });
+
 app.post("/api/salesmartly/webhook", express.json({ limit: "1mb" }), async (req, res) => {
   try {
     const evt = req.body || {};
+    __webhookHits.push({ at: new Date().toISOString(), keys: Object.keys(evt).slice(0, 10), event_type: evt.event_type || evt.event || evt.type, has_data: !!evt.data, has_contact: !!evt.contact });
+    if (__webhookHits.length > 50) __webhookHits.shift();
     // SaleSmartly webhook format: 通常包含 event_type / event / type 等欄位 + 訊息資料
     // 我們關心的是「客人傳訊息」事件
     const evtType = evt.event_type || evt.event || evt.type || '';
